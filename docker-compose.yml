@@ -1,0 +1,137 @@
+services:
+  # ── Databases ─────────────────────────────────────────
+  primary-db:
+    image: postgres:16-alpine
+    container_name: primary-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_provider
+    ports:
+      - "5432:5432"
+    volumes:
+      - primary_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  local-db:
+    image: postgres:16-alpine
+    container_name: local-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # App A & App B masing-masing punya database sendiri di instance ini
+      POSTGRES_MULTIPLE_DATABASES: app_a,app_b
+    ports:
+      - "5433:5432"
+    volumes:
+      - local_db_data:/var/lib/postgresql/data
+      - ./infra/postgres-init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Message Broker ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Auth Provider Platform ────────────────────────────
+  auth-server:
+    build: ./auth-provider/server
+    container_name: auth-server
+    restart: unless-stopped
+    env_file: ./auth-provider/server/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      primary-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  control-panel:
+    build: ./auth-provider/control-panel
+    container_name: control-panel
+    restart: unless-stopped
+    env_file: ./auth-provider/control-panel/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
+    ports:
+      - "3010:3010"
+    depends_on:
+      primary-db:
+        condition: service_healthy
+
+  # sync-worker belum di-scaffold — akan digenerate pada Milestone 5.
+  # Uncomment blok ini setelah auth-provider/sync-worker punya Dockerfile & package.json sendiri.
+  # sync-worker:
+  #   build: ./auth-provider/sync-worker
+  #   container_name: sync-worker
+  #   restart: unless-stopped
+  #   env_file: ./auth-provider/sync-worker/.env
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   depends_on:
+  #     primary-db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+  # ── Relying Applications ──────────────────────────────
+  app-a:
+    build: ./applications/app-a
+    container_name: app-a
+    restart: unless-stopped
+    env_file: ./applications/app-a/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@local-db:5432/app_a?schema=public
+      AUTH_PROVIDER_URL: http://auth-server:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      local-db:
+        condition: service_healthy
+      auth-server:
+        condition: service_started
+
+  app-b:
+    build: ./applications/app-b
+    container_name: app-b
+    restart: unless-stopped
+    env_file: ./applications/app-b/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@local-db:5432/app_b?schema=public
+      AUTH_PROVIDER_URL: http://auth-server:3000
+    ports:
+      - "3002:3002"
+    depends_on:
+      local-db:
+        condition: service_healthy
+      auth-server:
+        condition: service_started
+
+volumes:
+  primary_db_data:
+  local_db_data:
