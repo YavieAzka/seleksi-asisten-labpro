@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Users — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users" class="active">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Users</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </div>
+      <div class="actions-bar">
+        <a href="/users/new" class="btn btn-primary">+ Tambah User</a>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Nama</th><th>Email</th><th>Status</th><th>Groups</th><th>Aksi</th></tr>
+        </thead>
+        <tbody>
+          <% users.forEach(function(user) { %>
+            <tr>
+              <td><%= user.name %></td>
+              <td><%= user.email %></td>
+              <td><span class="badge badge-<%= user.status %>"><%= user.status %></span></td>
+              <td>
+                <% user.userGroups.forEach(function(ug) { %>
+                  <span class="badge badge-active"><%= ug.group.name %></span>
+                <% }); %>
+              </td>
+              <td><a href="/users/<%= user.id %>/edit" class="btn btn-secondary">Edit</a></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </main>
+  </div>
+</body>
+</html>

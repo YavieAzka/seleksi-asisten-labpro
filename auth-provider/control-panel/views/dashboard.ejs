@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard" class="active">Dashboard</a>
+      <a href="/users">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Dashboard</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout (<%= admin.name %>)</button>
+        </form>
+      </div>
+      <div class="card">
+        <p>Selamat datang, <strong><%= admin.name %></strong>.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 28px; font-weight: 700;"><%= stats.userCount %></div>
+          <div style="font-size: 13px; color: #666;">Users</div>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 28px; font-weight: 700;"><%= stats.groupCount %></div>
+          <div style="font-size: 13px; color: #666;">Groups</div>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 28px; font-weight: 700;"><%= stats.applicationCount %></div>
+          <div style="font-size: 13px; color: #666;">Applications</div>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 28px; font-weight: 700;"><%= stats.policyCount %></div>
+          <div style="font-size: 13px; color: #666;">Policies</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

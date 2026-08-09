@@ -1,0 +1,42 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tambah Group — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users">Users</a>
+      <a href="/groups" class="active">Groups</a>
+      <a href="/applications">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Tambah Group Baru</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </div>
+      <div class="card">
+        <form method="POST" action="/groups">
+          <div class="form-row">
+            <label for="name">Nama Group</label>
+            <input type="text" id="name" name="name" required placeholder="mis. Dosen, Mahasiswa, Admin" />
+          </div>
+          <div class="form-row">
+            <label for="description">Deskripsi</label>
+            <input type="text" id="description" name="description" placeholder="Opsional" />
+          </div>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+          <a href="/groups" class="btn btn-secondary">Batal</a>
+        </form>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

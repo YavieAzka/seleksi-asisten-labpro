@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tambah User — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users" class="active">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Tambah User Baru</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </div>
+      <div class="card">
+        <form method="POST" action="/users">
+          <div class="form-row">
+            <label for="name">Nama</label>
+            <input type="text" id="name" name="name" required />
+          </div>
+          <div class="form-row">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required />
+          </div>
+          <div class="form-row">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required minlength="8" />
+          </div>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+          <a href="/users" class="btn btn-secondary">Batal</a>
+        </form>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

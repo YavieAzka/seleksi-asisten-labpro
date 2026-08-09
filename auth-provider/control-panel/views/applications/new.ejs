@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tambah Application — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications" class="active">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Tambah Application Baru</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </div>
+      <div class="card">
+        <form method="POST" action="/applications">
+          <div class="form-row">
+            <label for="name">Nama Aplikasi</label>
+            <input type="text" id="name" name="name" required placeholder="mis. SiEks - Sistem Akademik" />
+          </div>
+          <div class="form-row">
+            <label for="clientId">Client ID</label>
+            <input type="text" id="clientId" name="clientId" required placeholder="mis. sieks-client" />
+          </div>
+          <div class="form-row">
+            <label for="redirectUri">Redirect URI (callback)</label>
+            <input type="text" id="redirectUri" name="redirectUri" required placeholder="http://localhost:3001/auth/callback" />
+          </div>
+          <div class="form-row">
+            <label for="logoutNotificationUrl">Logout Notification URL</label>
+            <input type="text" id="logoutNotificationUrl" name="logoutNotificationUrl" required placeholder="http://localhost:3001/internal/logout" />
+          </div>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+          <a href="/applications" class="btn btn-secondary">Batal</a>
+        </form>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

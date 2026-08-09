@@ -19,7 +19,7 @@ export class AuthController {
   @Get('login')
   @Render('login')
   loginPage(@Req() req: Request) {
-    if (req.session.adminUser) {
+    if (req.session?.adminUser) {
       return { redirectTo: '/dashboard' };
     }
     return { error: null };

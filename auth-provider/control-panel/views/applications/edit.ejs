@@ -1,0 +1,78 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edit Application — Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications" class="active">Applications</a>
+      <a href="/policies">Policies</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Edit Application</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Informasi Dasar</h3>
+        <p style="font-size: 13px; color: #666;">Client ID: <code><%= application.clientId %></code> (tidak dapat diubah)</p>
+        <form method="POST" action="/applications/<%= application.id %>">
+          <div class="form-row">
+            <label for="name">Nama Aplikasi</label>
+            <input type="text" id="name" name="name" value="<%= application.name %>" required />
+          </div>
+          <div class="form-row">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="active" <%= application.status === 'active' ? 'selected' : '' %>>active</option>
+              <option value="inactive" <%= application.status === 'inactive' ? 'selected' : '' %>>inactive</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="launchUrl">Launch URL</label>
+            <input type="text" id="launchUrl" name="launchUrl" value="<%= application.launchUrl || '' %>" />
+          </div>
+          <div class="form-row">
+            <label for="logoutNotificationUrl">Logout Notification URL</label>
+            <input type="text" id="logoutNotificationUrl" name="logoutNotificationUrl" value="<%= application.logoutNotificationUrl %>" required />
+          </div>
+          <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Redirect URIs</h3>
+        <table>
+          <thead><tr><th>Redirect URI</th><th>Aksi</th></tr></thead>
+          <tbody>
+            <% application.redirectUris.forEach(function(ru) { %>
+              <tr>
+                <td><code><%= ru.redirectUri %></code></td>
+                <td>
+                  <form method="POST" action="/applications/<%= application.id %>/redirect-uris/<%= ru.id %>/remove">
+                    <button type="submit" class="btn btn-danger">Hapus</button>
+                  </form>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+        <form method="POST" action="/applications/<%= application.id %>/redirect-uris" class="form-row" style="margin-top: 16px;">
+          <label for="redirectUri">Tambah Redirect URI</label>
+          <input type="text" id="redirectUri" name="redirectUri" placeholder="http://localhost:3001/auth/callback" required />
+          <button type="submit" class="btn btn-primary" style="margin-top: 8px;">Tambahkan</button>
+        </form>
+      </div>
+      <a href="/applications" class="btn btn-secondary">← Kembali ke Daftar Application</a>
+    </main>
+  </div>
+</body>
+</html>
