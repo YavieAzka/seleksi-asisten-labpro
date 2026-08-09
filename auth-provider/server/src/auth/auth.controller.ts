@@ -14,6 +14,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthorizeDto } from './dto/authorize.dto';
 import type { Request, Response } from 'express';
+import { BadRequestException } from '@nestjs/common/exceptions';
+import { TokenDto } from './dto/token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -100,5 +102,20 @@ export class AuthController {
     redirectUrl.searchParams.append('state', query.state);
 
     return res.redirect(302, redirectUrl.toString());
+  }
+
+  @Post('token')
+  @HttpCode(HttpStatus.OK)
+  async token(@Body() tokenDto: TokenDto) {
+    if (tokenDto.grant_type !== 'authorization_code') {
+      throw new BadRequestException('Grant type tidak didukung');
+    }
+
+    return this.authService.exchangeCodeForToken(
+      tokenDto.client_id,
+      tokenDto.redirect_uri,
+      tokenDto.code,
+      tokenDto.code_verifier,
+    );
   }
 }

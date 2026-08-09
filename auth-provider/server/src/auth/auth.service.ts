@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BadRequestException } from '@nestjs/common/exceptions';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -174,5 +175,95 @@ export class AuthService {
     });
 
     return code; // Code mentah yang akan dikirim via URL ke frontend
+  }
+
+  async exchangeCodeForToken(
+    clientId: string,
+    redirectUri: string,
+    code: string,
+    codeVerifier: string,
+  ) {
+    // 1. Hash code dari request untuk dicari di database
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+
+    const authCode = await this.prisma.authorizationCode.findFirst({
+      where: {
+        codeHash,
+        redirectUri,
+        application: { clientId },
+      },
+    });
+
+    if (!authCode) {
+      throw new UnauthorizedException('Authorization code tidak valid');
+    }
+
+    if (authCode.usedAt) {
+      throw new UnauthorizedException(
+        'Authorization code sudah pernah digunakan',
+      );
+    }
+
+    if (authCode.expiresAt < new Date()) {
+      throw new UnauthorizedException('Authorization code telah kedaluwarsa');
+    }
+
+    // 2. Validasi PKCE (S256)
+    // PKCE mewajibkan code_verifier di-hash dengan SHA256 lalu di-encode ke Base64URL
+    const expectedChallenge = crypto
+      .createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    if (authCode.codeChallenge !== expectedChallenge) {
+      throw new UnauthorizedException('PKCE verifier tidak valid');
+    }
+
+    // 3. Tandai code sudah digunakan
+    await this.prisma.authorizationCode.update({
+      where: { id: authCode.id },
+      data: { usedAt: new Date() },
+    });
+
+    // 4. Buat Access Token (Opaque Token)
+    const accessToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(accessToken)
+      .digest('hex');
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // Berlaku 1 jam
+
+    await this.prisma.accessToken.create({
+      data: {
+        tokenHash,
+        userId: authCode.userId,
+        applicationId: authCode.applicationId,
+        ssoSessionId: authCode.ssoSessionId,
+        expiresAt,
+        status: 'active',
+      },
+    });
+
+    // 5. Catat ke Audit Log
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'TokenIssued',
+        userId: authCode.userId,
+        applicationId: authCode.applicationId,
+        sessionId: authCode.ssoSessionId,
+        result: 'success',
+      },
+    });
+
+    return {
+      access_token: accessToken,
+      token_type: 'Bearer',
+      expires_in: 3600,
+    };
   }
 }
