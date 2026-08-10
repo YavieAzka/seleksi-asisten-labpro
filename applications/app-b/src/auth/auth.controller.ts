@@ -12,28 +12,37 @@ import type { Response } from 'express';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('login')
+  login(@Res() res: Response) {
+    const authUrl =
+      'http://localhost:3000/auth/authorize?client_id=edunek-client&redirect_uri=http://localhost:3002/auth/callback&response_type=code&state=xyz123&code_challenge=n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is0V1sFbDwCgg&code_challenge_method=S256';
+    return res.redirect(authUrl);
+  }
+
   @Get('callback')
   async handleCallback(
     @Query('code') code: string,
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    if (!code) {
+    if (!code)
       throw new UnauthorizedException('Authorization code tidak ditemukan');
-    }
 
     const { accessToken, userProfile } =
       await this.authService.exchangeCodeAndGetProfile(code);
 
-    // Simpan sesi lokal khusus untuk App B
     res.cookie('app_b_session', accessToken, {
       httpOnly: true,
       sameSite: 'lax',
     });
 
-    return res.json({
-      message: 'Login Edunek Berhasil!',
-      profile: userProfile,
-    });
+    return res.redirect('/dashboard');
+  }
+
+  @Get('logout')
+  logout(@Res() res: Response) {
+    // Sesuai spesifikasi: Hanya hapus local session
+    res.clearCookie('app_b_session');
+    return res.redirect('/');
   }
 }
