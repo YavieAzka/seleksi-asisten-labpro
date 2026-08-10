@@ -18,4 +18,5 @@ COPY --from=builder /app/views ./views
 COPY --from=builder /app/public ./public
 
 EXPOSE 3010
-CMD ["node", "dist/main"]
+# Menggunakan shell script untuk mendeteksi lokasi file main.js secara dinamis
+CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
