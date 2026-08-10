@@ -266,4 +266,35 @@ export class AuthService {
       expires_in: 3600,
     };
   }
+
+  async getUserInfoByToken(rawToken: string) {
+    // Karena di database yang disimpan adalah hash, kita harus hash token dari request
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+
+    const accessToken = await this.prisma.accessToken.findFirst({
+      where: {
+        tokenHash,
+        status: 'active',
+        expiresAt: { gt: new Date() },
+        revokedAt: null,
+      },
+      include: { user: true },
+    });
+
+    if (!accessToken || accessToken.user.status !== 'active') {
+      throw new UnauthorizedException(
+        'Access token tidak valid atau telah kedaluwarsa',
+      );
+    }
+
+    // Kembalikan identitas user. (Gunakan 'sub' sebagai standar OAuth2/OIDC untuk ID user)
+    return {
+      sub: accessToken.user.id,
+      name: accessToken.user.name,
+      email: accessToken.user.email,
+    };
+  }
 }

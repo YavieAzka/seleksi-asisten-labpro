@@ -118,4 +118,16 @@ export class AuthController {
       tokenDto.code_verifier,
     );
   }
+
+  @Get('userinfo')
+  async userinfo(@Req() req: Request) {
+    // Ambil token dari header Authorization: Bearer <token>
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Bearer token tidak ditemukan di header');
+    }
+
+    const token = authHeader.split(' ')[1];
+    return this.authService.getUserInfoByToken(token);
+  }
 }
