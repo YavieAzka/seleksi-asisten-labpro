@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
 RUN npm run build
 
 FROM node:20-alpine
@@ -15,4 +15,5 @@ COPY --from=builder /app/prisma.config.mjs ./
 COPY --from=builder /app/package*.json ./
 
 EXPOSE 3002
-CMD ["node", "dist/main"]
+# Menggunakan shell script untuk mendeteksi lokasi file main.js secara dinamis
+CMD ["sh", "-c", "if [ -f dist/src/main.js ]; then node dist/src/main.js; else node dist/main.js; fi"]
