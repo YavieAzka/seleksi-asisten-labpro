@@ -11,7 +11,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Konfigurasi EJS
-  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
 
   await app.listen(process.env.PORT || 3001);

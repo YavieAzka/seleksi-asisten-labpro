@@ -11,16 +11,13 @@ export class AppController {
 
   @Get('dashboard')
   async dashboard(@Req() req: Request, @Res() res: Response) {
-    // Cek apakah user punya cookie sesi
     const token = req.cookies['app_a_session'];
 
-    // Jika tidak ada, tendang kembali ke halaman depan
     if (!token) {
       return res.redirect('/');
     }
 
     try {
-      // Ambil profil dari Auth Server menggunakan token
       const profileResponse = await fetch(
         'http://localhost:3000/auth/userinfo',
         {
@@ -32,8 +29,50 @@ export class AppController {
 
       const profile = await profileResponse.json();
 
-      // Render halaman dashboard dengan data profil
-      return res.render('dashboard', { profile });
+      // --- MOCK DATA UNTUK UI (Akan diganti dengan query Database Lokal nanti) ---
+
+      const sessionInfo = {
+        status: 'Active',
+        createdAt: new Date().toLocaleString('id-ID'),
+        expiresAt: new Date(Date.now() + 3600000).toLocaleString('id-ID'), // +1 jam
+      };
+
+      const activityLogs = [
+        {
+          time: new Date().toLocaleString('id-ID'),
+          action: 'Membuat local session berhasil',
+        },
+        {
+          time: new Date(Date.now() - 1000).toLocaleString('id-ID'),
+          action: 'Mengambil identitas melalui endpoint user information',
+        },
+        {
+          time: new Date(Date.now() - 2000).toLocaleString('id-ID'),
+          action: 'Menukar authorization code menjadi access token',
+        },
+        {
+          time: new Date(Date.now() - 4000).toLocaleString('id-ID'),
+          action: 'Menerima authorization code di callback',
+        },
+        {
+          time: new Date(Date.now() - 8000).toLocaleString('id-ID'),
+          action: 'Mengarahkan ke Auth Provider untuk otorisasi',
+        },
+      ];
+
+      const processedEvents = [
+        // Kosong untuk saat ini, akan terisi saat Milestone 5 berjalan
+        // { id: 'evt-1234', type: 'SessionRevoked', processedAt: '...', result: 'local session dihapus' }
+      ];
+
+      // --------------------------------------------------------------------------
+
+      return res.render('dashboard', {
+        profile,
+        sessionInfo,
+        activityLogs,
+        processedEvents,
+      });
     } catch (error) {
       res.clearCookie('app_a_session');
       return res.redirect('/');
