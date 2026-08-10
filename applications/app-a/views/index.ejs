@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-100 h-screen flex items-center justify-center">
+    <div
+      class="bg-white p-10 rounded-xl shadow-lg w-96 text-center border-t-4 border-blue-600"
+    >
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">SiEks</h1>
+      <p class="text-sm text-gray-500 font-semibold mb-8">
+        Sistem Informasi Akademik ITB
+      </p>
+
+      <p class="text-gray-600 mb-6 text-sm">
+        Gunakan akun terpusat Anda untuk masuk ke dalam portal akademik.
+      </p>
+
+      <a
+        href="/auth/login"
+        class="block w-full bg-blue-600 text-white font-semibold px-4 py-3 rounded-lg hover:bg-blue-700 transition duration-200"
+      >
+        Login dengan SSO ITB
+      </a>
+    </div>
+  </body>
+</html>

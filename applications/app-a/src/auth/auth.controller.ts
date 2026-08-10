@@ -3,7 +3,6 @@ import {
   Get,
   Query,
   Res,
-  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -13,32 +12,41 @@ import type { Response } from 'express';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // 1. Endpoint untuk trigger SSO Login
+  @Get('login')
+  login(@Res() res: Response) {
+    // URL ini mengarah ke Auth Server dengan kredensial milik SiEks (App A)
+    const authUrl =
+      'http://localhost:3000/auth/authorize?client_id=sieks-client&redirect_uri=http://localhost:3001/auth/callback&response_type=code&state=xyz123&code_challenge=n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is0V1sFbDwCgg&code_challenge_method=S256';
+    return res.redirect(authUrl);
+  }
+
+  // 2. Callback yang dimodifikasi
   @Get('callback')
   async handleCallback(
     @Query('code') code: string,
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    if (!code) {
+    if (!code)
       throw new UnauthorizedException('Authorization code tidak ditemukan');
-    }
 
-    // Tukarkan kode dengan token dan dapatkan profil
     const { accessToken, userProfile } =
       await this.authService.exchangeCodeAndGetProfile(code);
 
-    // Di sinilah App A menyimpan sesi lokalnya!
-    // Untuk saat ini, kita set cookie sederhana dan kembalikan JSON profil
     res.cookie('app_a_session', accessToken, {
       httpOnly: true,
       sameSite: 'lax',
     });
 
-    // Idealnya di-redirect ke halaman Dashboard Frontend App A.
-    // Sementara kita return JSON untuk memastikan datanya masuk.
-    return res.json({
-      message: 'Login SiEks Berhasil!',
-      profile: userProfile,
-    });
+    // Arahkan ke dashboard alih-alih mengembalikan JSON
+    return res.redirect('/dashboard');
+  }
+
+  // 3. Endpoint Logout lokal
+  @Get('logout')
+  logout(@Res() res: Response) {
+    res.clearCookie('app_a_session');
+    return res.redirect('/');
   }
 }
