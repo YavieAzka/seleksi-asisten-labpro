@@ -22,13 +22,22 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @HttpCode(HttpStatus.OK)
   async login(
-    @Body() loginDto: LoginDto,
+    @Body() loginDto: LoginDto, // Kembali menggunakan DTO yang rapi
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
   ) {
-    const { email, password } = loginDto;
+    // Destrukturisasi semua nilai dari DTO
+    const {
+      email,
+      password,
+      client_id,
+      redirect_uri,
+      response_type,
+      state,
+      code_challenge,
+      code_challenge_method,
+    } = loginDto;
 
     const user = await this.authService.validateUser(email, password);
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -47,14 +56,29 @@ export class AuthController {
       expires: session.expiresAt,
     });
 
-    return {
+    // 1. Jika ada redirect_uri (login dari layar browser SSO)
+    if (redirect_uri) {
+      const queryString = new URLSearchParams({
+        client_id: client_id || '',
+        redirect_uri: redirect_uri || '',
+        response_type: response_type || '',
+        state: state || '',
+        code_challenge: code_challenge || '',
+        code_challenge_method: code_challenge_method || '',
+      }).toString();
+
+      return res.redirect(`/auth/authorize?${queryString}`);
+    }
+
+    // 2. Jika tidak ada redirect_uri (login manual dari API/PowerShell)
+    return res.json({
       message: 'Login berhasil',
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
       },
-    };
+    });
   }
 
   @Get('authorize')
@@ -63,7 +87,14 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    // 1. Ambil cookie sso_session dari request
+    const sessionId = req.cookies['sso_session'];
+
+    if (!sessionId) {
+      // Jika belum login, ubah objek query jadi string URL dan redirect ke form login
+      const queryString = new URLSearchParams(query as any).toString();
+      return res.redirect(`/auth/login-page?${queryString}`);
+    }
+    // Ambil cookie sso_session dari request
     const rawToken = req.cookies['sso_session'];
     if (!rawToken) {
       throw new UnauthorizedException('Harap login terlebih dahulu');
@@ -71,7 +102,7 @@ export class AuthController {
       // res.redirect('/halaman-login') sesuai kebutuhan UI.
     }
 
-    // 2. Validasi central session
+    // Validasi central session
     const session = await this.authService.validateCentralSession(rawToken);
     if (!session) {
       throw new UnauthorizedException(
@@ -79,14 +110,14 @@ export class AuthController {
       );
     }
 
-    // 3. Validasi Client ID, Redirect URI, dan Policy akses
+    // Validasi Client ID, Redirect URI, dan Policy akses
     const app = await this.authService.validateClientAndPolicy(
       query.client_id,
       query.redirect_uri,
       session.user.userGroups,
     );
 
-    // 4. Buat Authorization Code
+    // Buat Authorization Code
     const code = await this.authService.generateAuthorizationCode(
       session.userId,
       app.id,
@@ -96,7 +127,7 @@ export class AuthController {
       query.code_challenge_method,
     );
 
-    // 5. Redirect kembali ke App A / App B dengan membawa parameter code dan state
+    // Redirect kembali ke App A / App B dengan membawa parameter code dan state
     const redirectUrl = new URL(query.redirect_uri);
     redirectUrl.searchParams.append('code', code);
     redirectUrl.searchParams.append('state', query.state);
@@ -129,5 +160,11 @@ export class AuthController {
 
     const token = authHeader.split(' ')[1];
     return this.authService.getUserInfoByToken(token);
+  }
+
+  @Get('login-page')
+  renderLogin(@Query() query: any, @Res() res: Response) {
+    // Teruskan semua query parameters ke EJS agar nanti bisa dikirim ulang lewat form
+    return res.render('login', { query });
   }
 }
