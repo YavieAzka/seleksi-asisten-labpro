@@ -13,6 +13,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.mjs ./
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/views ./views
 
 EXPOSE 3001
 # Menggunakan shell script untuk mendeteksi lokasi file main.js secara dinamis

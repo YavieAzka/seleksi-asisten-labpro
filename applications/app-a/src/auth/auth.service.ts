@@ -11,8 +11,14 @@ export class AuthService {
   private readonly codeVerifier = 'test';
 
   async exchangeCodeAndGetProfile(code: string) {
+    // Sesuaikan URL untuk komunikasi peladen-ke-peladen di dalam jaringan Docker
+    const internalAuthServerUrl = this.authServerUrl.replace(
+      'localhost',
+      'host.docker.internal',
+    );
+
     // 1. Tukarkan Code dengan Access Token
-    const tokenResponse = await fetch(`${this.authServerUrl}/auth/token`, {
+    const tokenResponse = await fetch(`${internalAuthServerUrl}/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -32,12 +38,15 @@ export class AuthService {
     const accessToken = tokenData.access_token;
 
     // 2. Gunakan Access Token untuk mengambil profil user
-    const profileResponse = await fetch(`${this.authServerUrl}/auth/userinfo`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
+    const profileResponse = await fetch(
+      `${internalAuthServerUrl}/auth/userinfo`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       },
-    });
+    );
 
     if (!profileResponse.ok) {
       throw new UnauthorizedException('Gagal mengambil profil pengguna');
