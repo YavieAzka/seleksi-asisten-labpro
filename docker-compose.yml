@@ -85,22 +85,20 @@ services:
       primary-db:
         condition: service_healthy
 
-  # sync-worker belum di-scaffold — akan digenerate pada Milestone 5.
-  # Uncomment blok ini setelah auth-provider/sync-worker punya Dockerfile & package.json sendiri.
-  # sync-worker:
-  #   build: ./auth-provider/sync-worker
-  #   container_name: sync-worker
-  #   restart: unless-stopped
-  #   env_file: ./auth-provider/sync-worker/.env
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #   depends_on:
-  #     primary-db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
+  sync-worker:
+    build: ./auth-provider/sync-worker
+    container_name: sync-worker
+    restart: unless-stopped
+    env_file: ./auth-provider/sync-worker/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      primary-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # ── Relying Applications ──────────────────────────────
   app-a:
