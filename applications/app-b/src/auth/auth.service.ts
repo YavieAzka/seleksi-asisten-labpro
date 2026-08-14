@@ -3,11 +3,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 @Injectable()
 export class AuthService {
   private readonly authServerUrl = 'http://localhost:3000';
-  private readonly clientId = 'edunek-client'; // Client ID App B
-  private readonly redirectUri = 'http://localhost:3002/auth/callback'; // Port 3002
+  private readonly clientId = 'edunek-client'; // Sesuaikan dengan database
+  private readonly redirectUri = 'http://localhost:3002/auth/callback';
+
+  // Verifier statis sementara untuk testing (idealnya digenerate dinamis per sesi login)
   private readonly codeVerifier = 'test';
 
   async exchangeCodeAndGetProfile(code: string) {
+    // 1. Tukarkan Code dengan Access Token
     const tokenResponse = await fetch(`${this.authServerUrl}/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -27,6 +30,7 @@ export class AuthService {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
+    // 2. Gunakan Access Token untuk mengambil profil user
     const profileResponse = await fetch(`${this.authServerUrl}/auth/userinfo`, {
       method: 'GET',
       headers: {

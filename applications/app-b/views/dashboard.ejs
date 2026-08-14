@@ -1,53 +1,96 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Dashboard - Edunek</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-gray-50 min-h-screen">
-    <nav
-      class="bg-emerald-600 p-4 shadow-md text-white flex justify-between items-center"
-    >
-      <h1 class="text-xl font-bold">Edunek Dashboard</h1>
-      <a
-        href="/auth/logout"
-        class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-medium text-sm transition"
-        >Logout Lokal</a
-      >
-    </nav>
+<head>
+  <title>Dashboard - Edunek</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen pb-10">
+  <nav class="bg-emerald-600 p-4 shadow-md text-white flex justify-between items-center">
+    <h1 class="text-xl font-bold">Edunek Dashboard</h1>
+    <a href="/auth/logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-medium text-sm transition shadow">Logout Lokal</a>
+  </nav>
 
-    <main class="max-w-4xl mx-auto mt-10 p-6">
-      <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
-        <div
-          class="bg-emerald-50 border-l-4 border-emerald-500 p-6 mb-8 rounded-r-lg"
-        >
-          <h2 class="text-2xl font-bold text-gray-800">
-            Selamat Datang di Kelas, <%= profile.name %>!
-          </h2>
-          <div class="mt-4 text-gray-700 space-y-1">
-            <p>
-              <span class="font-semibold">Email:</span> <%= profile.email %>
-            </p>
-            <p class="text-sm text-gray-500">
-              <span class="font-semibold">Sistem ID:</span> <%= profile.sub %>
-            </p>
-          </div>
-        </div>
-
-        <h3 class="font-bold text-lg text-gray-800 border-b pb-2 mb-4">
-          Mata Kuliah Aktif
-        </h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="p-4 border rounded-lg bg-gray-50">
-            <p class="text-emerald-700 font-bold">IF2210</p>
-            <p class="text-gray-600 text-sm">Pemrograman Berorientasi Objek</p>
-          </div>
-          <div class="p-4 border rounded-lg bg-gray-50">
-            <p class="text-emerald-700 font-bold">IF2220</p>
-            <p class="text-gray-600 text-sm">Probabilitas dan Statistika</p>
-          </div>
+  <main class="max-w-5xl mx-auto mt-8 px-6 space-y-6">
+    
+    <!-- 1. Identitas User & Status Sesi -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Identitas -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-emerald-500">
+        <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-3">Identitas Pengguna</h2>
+        <p class="text-lg font-semibold text-gray-700">Hello, <%= profile.name %></p>
+        <div class="mt-2 text-sm text-gray-600 space-y-1">
+          <p><span class="font-semibold text-gray-800">Email:</span> <%= profile.email %></p>
+          <p><span class="font-semibold text-gray-800">Sistem ID:</span> <%= profile.sub %></p>
         </div>
       </div>
-    </main>
-  </body>
+
+      <!-- Status Sesi Lokal -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-green-500">
+        <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-3">Local Session Status</h2>
+        <div class="flex items-center space-x-2 mb-3">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+          </span>
+          <p class="font-bold text-green-600 uppercase tracking-wider"><%= sessionInfo.status %></p>
+        </div>
+        <div class="text-sm text-gray-600 space-y-1">
+          <p><span class="font-semibold text-gray-800">Dibuat:</span> <%= sessionInfo.createdAt %></p>
+          <p><span class="font-semibold text-gray-800">Kedaluwarsa:</span> <%= sessionInfo.expiresAt %></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Activity Log -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Activity Log</h2>
+      <div class="space-y-4">
+        <% activityLogs.forEach(log => { %>
+          <div class="flex items-start">
+            <div class="flex-shrink-0 h-2 w-2 mt-2 rounded-full bg-emerald-500 mr-4"></div>
+            <div>
+              <p class="text-sm font-semibold text-gray-800"><%= log.action %></p>
+              <p class="text-xs text-gray-500"><%= log.time %></p>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- 3. Daftar Processed Events -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Processed Events (Sync Worker)</h2>
+      
+      <% if (processedEvents.length === 0) { %>
+        <div class="p-4 bg-gray-50 border border-dashed border-gray-300 rounded text-center text-sm text-gray-500">
+          Belum ada event pencabutan sesi yang diterima dari Auth Provider.
+        </div>
+      <% } else { %>
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white border border-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="py-2 px-4 border-b font-semibold text-left text-gray-700">Event ID</th>
+                <th class="py-2 px-4 border-b font-semibold text-left text-gray-700">Tipe Event</th>
+                <th class="py-2 px-4 border-b font-semibold text-left text-gray-700">Waktu Diproses</th>
+                <th class="py-2 px-4 border-b font-semibold text-left text-gray-700">Hasil / Tindakan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% processedEvents.forEach(event => { %>
+                <tr>
+                  <td class="py-2 px-4 border-b text-gray-600 font-mono text-xs"><%= event.id %></td>
+                  <td class="py-2 px-4 border-b text-red-600 font-semibold"><%= event.type %></td>
+                  <td class="py-2 px-4 border-b text-gray-600"><%= event.processedAt %></td>
+                  <td class="py-2 px-4 border-b text-gray-600"><%= event.result %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+</body>
 </html>

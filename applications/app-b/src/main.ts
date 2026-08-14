@@ -6,9 +6,11 @@ import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
   app.use(cookieParser());
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
-  await app.listen(process.env.PORT || 3002);
+  await app.listen(3002);
+  console.log(`App B (Edunek) is running on: http://localhost:3002`);
 }
 bootstrap();
