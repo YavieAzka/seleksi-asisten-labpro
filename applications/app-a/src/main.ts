@@ -6,11 +6,7 @@ import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-
-  // Menggunakan cookie parser
   app.use(cookieParser());
-
-  // Konfigurasi EJS
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
 

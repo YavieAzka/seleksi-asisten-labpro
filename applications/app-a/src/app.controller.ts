@@ -1,8 +1,12 @@
 import { Controller, Get, Render, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
+  // Suntikkan PrismaService
+  constructor(private readonly prisma: PrismaService) {}
+
   @Get()
   @Render('index')
   index() {
@@ -13,67 +17,65 @@ export class AppController {
   async dashboard(@Req() req: Request, @Res() res: Response) {
     const token = req.cookies['app_a_session'];
 
-    if (!token) {
-      return res.redirect('/');
-    }
+    if (!token) return res.redirect('/');
 
     try {
-      const profileResponse = await fetch(
-        'http://localhost:3000/auth/userinfo',
-        {
-          headers: { Authorization: `Bearer ${token}` },
+      // 1. Validasi Local Session di Database
+      const session = await this.prisma.localSession.findFirst({
+        where: {
+          sessionTokenHash: token,
+          status: 'active',
         },
-      );
+      });
 
-      if (!profileResponse.ok) throw new Error('Token invalid');
+      // Jika tidak ada di DB, atau sudah melewati batas waktu
+      if (!session || session.expiresAt < new Date()) {
+        throw new Error('Sesi lokal tidak valid atau kedaluwarsa');
+      }
 
-      const profile = await profileResponse.json();
+      // 2. Ambil Identitas dari Profile Cache Lokal
+      const profile = await this.prisma.profileCache.findUnique({
+        where: { externalUserId: session.externalUserId },
+      });
 
-      // --- MOCK DATA UNTUK UI (Akan diganti dengan query Database Lokal nanti) ---
+      if (!profile) throw new Error('Profil tidak ditemukan di cache lokal');
 
+      // 3. Ambil riwayat event pencabutan dari DB (jika ada)
+      const processedEvents = await this.prisma.processedEvent.findMany({
+        orderBy: { processedAt: 'desc' },
+        take: 5,
+      });
+
+      // Format data untuk antarmuka EJS
       const sessionInfo = {
-        status: 'Active',
-        createdAt: new Date().toLocaleString('id-ID'),
-        expiresAt: new Date(Date.now() + 3600000).toLocaleString('id-ID'), // +1 jam
+        status: session.status.toUpperCase(),
+        createdAt: session.createdAt.toLocaleString('id-ID'),
+        expiresAt: session.expiresAt.toLocaleString('id-ID'),
       };
 
       const activityLogs = [
         {
-          time: new Date().toLocaleString('id-ID'),
-          action: 'Membuat local session berhasil',
+          time: session.createdAt.toLocaleString('id-ID'),
+          action: 'Membuat local session di database berhasil',
         },
         {
-          time: new Date(Date.now() - 1000).toLocaleString('id-ID'),
-          action: 'Mengambil identitas melalui endpoint user information',
-        },
-        {
-          time: new Date(Date.now() - 2000).toLocaleString('id-ID'),
-          action: 'Menukar authorization code menjadi access token',
-        },
-        {
-          time: new Date(Date.now() - 4000).toLocaleString('id-ID'),
-          action: 'Menerima authorization code di callback',
-        },
-        {
-          time: new Date(Date.now() - 8000).toLocaleString('id-ID'),
-          action: 'Mengarahkan ke Auth Provider untuk otorisasi',
+          time: profile.updatedAt.toLocaleString('id-ID'),
+          action: 'Sinkronisasi Profile Cache dari Auth Provider berhasil',
         },
       ];
-
-      const processedEvents = [
-        // Kosong untuk saat ini, akan terisi saat Milestone 5 berjalan
-        // { id: 'evt-1234', type: 'SessionRevoked', processedAt: '...', result: 'local session dihapus' }
-      ];
-
-      // --------------------------------------------------------------------------
 
       return res.render('dashboard', {
-        profile,
+        profile: {
+          name: profile.name,
+          email: profile.email,
+          sub: profile.externalUserId,
+        },
         sessionInfo,
         activityLogs,
         processedEvents,
       });
     } catch (error) {
+      // Jika validasi gagal, bersihkan cookie dan paksa login ulang
       res.clearCookie('app_a_session');
       return res.redirect('/');
     }
