@@ -23,11 +23,10 @@ export class AuthController {
 
   @Post('login')
   async login(
-    @Body() loginDto: LoginDto, // Kembali menggunakan DTO yang rapi
+    @Body() loginDto: LoginDto,
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    // Destrukturisasi semua nilai dari DTO
     const {
       email,
       password,
@@ -56,7 +55,6 @@ export class AuthController {
       expires: session.expiresAt,
     });
 
-    // 1. Jika ada redirect_uri (login dari layar browser SSO)
     if (redirect_uri) {
       const queryString = new URLSearchParams({
         client_id: client_id || '',
@@ -70,7 +68,6 @@ export class AuthController {
       return res.redirect(`/auth/authorize?${queryString}`);
     }
 
-    // 2. Jika tidak ada redirect_uri (login manual dari API/PowerShell)
     return res.json({
       message: 'Login berhasil',
       user: {
@@ -90,19 +87,15 @@ export class AuthController {
     const sessionId = req.cookies['sso_session'];
 
     if (!sessionId) {
-      // Jika belum login, ubah objek query jadi string URL dan redirect ke form login
       const queryString = new URLSearchParams(query as any).toString();
       return res.redirect(`/auth/login-page?${queryString}`);
     }
-    // Ambil cookie sso_session dari request
+
     const rawToken = req.cookies['sso_session'];
     if (!rawToken) {
       throw new UnauthorizedException('Harap login terlebih dahulu');
-      // Nantinya, jika diakses via browser, bagian ini bisa diubah menjadi
-      // res.redirect('/halaman-login') sesuai kebutuhan UI.
     }
 
-    // Validasi central session
     const session = await this.authService.validateCentralSession(rawToken);
     if (!session) {
       throw new UnauthorizedException(
@@ -110,14 +103,12 @@ export class AuthController {
       );
     }
 
-    // Validasi Client ID, Redirect URI, dan Policy akses
     const app = await this.authService.validateClientAndPolicy(
       query.client_id,
       query.redirect_uri,
       session.user.userGroups,
     );
 
-    // Buat Authorization Code
     const code = await this.authService.generateAuthorizationCode(
       session.userId,
       app.id,
@@ -127,7 +118,6 @@ export class AuthController {
       query.code_challenge_method,
     );
 
-    // Redirect kembali ke App A / App B dengan membawa parameter code dan state
     const redirectUrl = new URL(query.redirect_uri);
     redirectUrl.searchParams.append('code', code);
     redirectUrl.searchParams.append('state', query.state);
@@ -152,7 +142,6 @@ export class AuthController {
 
   @Get('userinfo')
   async userinfo(@Req() req: Request) {
-    // Ambil token dari header Authorization: Bearer <token>
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Bearer token tidak ditemukan di header');
@@ -164,7 +153,23 @@ export class AuthController {
 
   @Get('login-page')
   renderLogin(@Query() query: any, @Res() res: Response) {
-    // Teruskan semua query parameters ke EJS agar nanti bisa dikirim ulang lewat form
     return res.render('login', { query });
+  }
+
+  // --- ENDPOINT BARU: Global Logout SSO ---
+  @Get('logout')
+  async logout(@Req() req: Request, @Res() res: Response) {
+    const rawToken = req.cookies['sso_session'];
+
+    if (rawToken) {
+      // Cabut sesi secara sinkron dan publikasikan event secara asinkron
+      await this.authService.revokeCentralSession(rawToken, 'sso_logout');
+    }
+
+    // Bersihkan cookie peramban
+    res.clearCookie('sso_session');
+
+    // Kembalikan ke halaman login agar pengguna tahu mereka sudah keluar
+    return res.redirect('/auth/login-page');
   }
 }

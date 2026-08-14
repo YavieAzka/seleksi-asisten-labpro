@@ -3,10 +3,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common/exceptions';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Menginjeksi antrean 'sso-events' yang sudah didaftarkan di AppModule
+    @InjectQueue('sso-events') private readonly eventQueue: Queue,
+  ) {}
 
   async validateUser(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({
@@ -34,20 +40,16 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    // Hasilkan token acak (opaque token) yang aman untuk cookie
     const sessionToken = crypto.randomBytes(32).toString('hex');
 
-    // Hash token sebelum disimpan ke database (SHA-256 sudah cukup untuk token session)
     const sessionTokenHash = crypto
       .createHash('sha256')
       .update(sessionToken)
       .digest('hex');
 
-    // Tentukan waktu kedaluwarsa (contoh: 1 hari)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 1);
 
-    // Simpan ke database (sesuaikan 'ssoSession' dengan nama model di Prisma-mu)
     const session = await this.prisma.ssoSession.create({
       data: {
         userId,
@@ -58,20 +60,17 @@ export class AuthService {
         userAgent: userAgent || null,
       },
     });
-    // Kembalikan rawToken (untuk dikirim ke client sebagai cookie) dan data session
     return { rawToken: sessionToken, session };
   }
 
   async validateCentralSession(rawToken: string) {
     if (!rawToken) return null;
 
-    // Hash kembali token mentah dari cookie untuk dicocokkan dengan database
     const sessionTokenHash = crypto
       .createHash('sha256')
       .update(rawToken)
       .digest('hex');
 
-    // Cari sesi yang valid, belum expired, dan belum di-revoke
     const session = await this.prisma.ssoSession.findFirst({
       where: {
         sessionTokenHash,
@@ -79,7 +78,6 @@ export class AuthService {
         expiresAt: { gt: new Date() },
         revokedAt: null,
       },
-      // Kita include user dan group-nya karena nanti butuh untuk evaluasi Policy
       include: {
         user: {
           include: { userGroups: true },
@@ -87,7 +85,6 @@ export class AuthService {
       },
     });
 
-    // Jika sesi tidak ditemukan atau user sudah tidak aktif, kembalikan null
     if (!session || session.user.status !== 'active') {
       return null;
     }
@@ -100,7 +97,6 @@ export class AuthService {
     redirectUri: string,
     userGroups: any[],
   ) {
-    // Cari aplikasi beserta redirect URI dan Policy-nya
     const app = await this.prisma.application.findUnique({
       where: { clientId },
       include: { redirectUris: true, groupPolicies: true },
@@ -112,7 +108,6 @@ export class AuthService {
       );
     }
 
-    // Validasi redirect URI (harus exact match)
     const isValidUri = app.redirectUris.some(
       (uri) => uri.redirectUri === redirectUri,
     );
@@ -120,7 +115,6 @@ export class AuthService {
       throw new UnauthorizedException('Redirect URI tidak terdaftar');
     }
 
-    // Evaluasi Policy akses (Apakah user memiliki group yang diizinkan?)
     const userGroupIds = userGroups.map((ug) => ug.groupId);
     const hasAccess = app.groupPolicies.some(
       (policy) =>
@@ -128,7 +122,6 @@ export class AuthService {
     );
 
     if (!hasAccess) {
-      // Catat ke audit log jika akses ditolak
       await this.prisma.auditLog.create({
         data: {
           eventType: 'PolicyDenied',
@@ -151,13 +144,9 @@ export class AuthService {
     codeChallenge: string,
     codeChallengeMethod: string,
   ) {
-    // Generate code acak
     const code = crypto.randomBytes(32).toString('hex');
-
-    // Hash code sebelum disimpan (PKCE butuh code mentah nanti saat ditukar)
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
 
-    // TTL pendek: 5 menit
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
@@ -174,7 +163,7 @@ export class AuthService {
       },
     });
 
-    return code; // Code mentah yang akan dikirim via URL ke frontend
+    return code;
   }
 
   async exchangeCodeForToken(
@@ -183,7 +172,6 @@ export class AuthService {
     code: string,
     codeVerifier: string,
   ) {
-    // 1. Hash code dari request untuk dicari di database
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
 
     const authCode = await this.prisma.authorizationCode.findFirst({
@@ -208,8 +196,6 @@ export class AuthService {
       throw new UnauthorizedException('Authorization code telah kedaluwarsa');
     }
 
-    // 2. Validasi PKCE (S256)
-    // PKCE mewajibkan code_verifier di-hash dengan SHA256 lalu di-encode ke Base64URL
     const expectedChallenge = crypto
       .createHash('sha256')
       .update(codeVerifier)
@@ -222,13 +208,11 @@ export class AuthService {
       throw new UnauthorizedException('PKCE verifier tidak valid');
     }
 
-    // 3. Tandai code sudah digunakan
     await this.prisma.authorizationCode.update({
       where: { id: authCode.id },
       data: { usedAt: new Date() },
     });
 
-    // 4. Buat Access Token (Opaque Token)
     const accessToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto
       .createHash('sha256')
@@ -236,7 +220,7 @@ export class AuthService {
       .digest('hex');
 
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // Berlaku 1 jam
+    expiresAt.setHours(expiresAt.getHours() + 1);
 
     await this.prisma.accessToken.create({
       data: {
@@ -249,7 +233,6 @@ export class AuthService {
       },
     });
 
-    // 5. Catat ke Audit Log
     await this.prisma.auditLog.create({
       data: {
         eventType: 'TokenIssued',
@@ -268,7 +251,6 @@ export class AuthService {
   }
 
   async getUserInfoByToken(rawToken: string) {
-    // Karena di database yang disimpan adalah hash, kita harus hash token dari request
     const tokenHash = crypto
       .createHash('sha256')
       .update(rawToken)
@@ -290,11 +272,100 @@ export class AuthService {
       );
     }
 
-    // Kembalikan identitas user. (Gunakan 'sub' sebagai standar OAuth2/OIDC untuk ID user)
     return {
       sub: accessToken.user.id,
       name: accessToken.user.name,
       email: accessToken.user.email,
     };
+  }
+
+  // --- FUNGSI BARU: Pencabutan Sesi secara Sinkron & Asinkron ---
+  async revokeCentralSession(rawToken: string, reason: string = 'sso_logout') {
+    if (!rawToken) return;
+
+    const sessionTokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+
+    // 1. Cari sesi sentral yang masih aktif
+    const session = await this.prisma.ssoSession.findFirst({
+      where: { sessionTokenHash, status: 'active' },
+    });
+
+    if (!session) return;
+
+    // 2. Terapkan Transactional Outbox
+    const savedEvent = await this.prisma.$transaction(async (tx) => {
+      // Cabut sesi sentral
+      await tx.ssoSession.update({
+        where: { id: session.id },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: reason,
+        },
+      });
+
+      // Cabut semua akses token yang terkait dengan sesi ini agar tidak bisa digunakan lagi
+      await tx.accessToken.updateMany({
+        where: { ssoSessionId: session.id, status: 'active' },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+        },
+      });
+
+      // Siapkan payload event sesuai spesifikasi
+      const eventPayload = {
+        eventId: crypto.randomUUID(), // Dihasilkan agar unik
+        eventType: 'SessionRevoked',
+        userId: session.userId,
+        centralSessionId: session.id,
+        applicationId: null, // null karena ini logout global untuk semua aplikasi
+        reason: reason,
+        occurredAt: new Date().toISOString(),
+        metadata: {},
+      };
+
+      // Simpan event ke tabel events untuk outbox
+      const newEvent = await tx.event.create({
+        data: {
+          eventType: 'SessionRevoked',
+          userId: session.userId,
+          centralSessionId: session.id,
+          payload: eventPayload,
+          status: 'pending', // Masih pending sebelum masuk Redis
+        },
+      });
+
+      // Catat ke audit log
+      await tx.auditLog.create({
+        data: {
+          eventType: 'Logout',
+          userId: session.userId,
+          sessionId: session.id,
+          result: 'success',
+          metadata: { reason },
+        },
+      });
+
+      return newEvent;
+    });
+
+    // 3. Masukkan ke Message Queue (BullMQ)
+    // Penggunaan properti jobId memastikan event yang sama tidak dikerjakan dua kali
+    await this.eventQueue.add('SessionRevoked', savedEvent.payload, {
+      jobId: savedEvent.id,
+    });
+
+    // 4. Tandai bahwa event berhasil dikirim ke antrean
+    await this.prisma.event.update({
+      where: { id: savedEvent.id },
+      data: {
+        status: 'published',
+        publishedAt: new Date(),
+      },
+    });
   }
 }
