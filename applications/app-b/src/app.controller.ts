@@ -13,18 +13,18 @@ export class AppController {
 
   @Get('dashboard')
   async dashboard(@Req() req: Request, @Res() res: Response) {
-    // Sesuaikan nama cookie ini dengan yang Anda tetapkan di auth.controller.ts
-    // (Bisa jadi 'local_session', 'edunek_session', atau 'sieks_session' jika Anda menyalin mentah-mentah)
-    const sessionId = req.cookies?.['app_b_session'];
+    // PERBAIKAN 1: Ubah nama variabel agar lebih relevan (token, bukan ID)
+    const sessionToken = req.cookies?.['app_b_session'];
 
-    if (!sessionId) {
+    if (!sessionToken) {
       // Jika tidak ada sesi, kembalikan ke halaman login
       return res.redirect('/');
     }
 
-    // 1. Validasi sesi lokal
-    const session = await this.prisma.localSession.findUnique({
-      where: { id: sessionId },
+    // PERBAIKAN 2: Cari sesi menggunakan sessionTokenHash, bukan id
+    // Menggunakan findFirst untuk menghindari error jika kolom ini bukan @unique di skema Prisma Anda
+    const session = await this.prisma.localSession.findFirst({
+      where: { sessionTokenHash: sessionToken },
     });
 
     if (!session || session.status !== 'active') {

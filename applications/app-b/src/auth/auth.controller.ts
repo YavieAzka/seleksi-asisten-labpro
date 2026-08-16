@@ -3,11 +3,12 @@ import {
   Get,
   Query,
   Res,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -56,8 +57,7 @@ export class AuthController {
     // 3. Buat Local Session baru
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // Berlaku 1 jam
 
-    // PERBAIKAN: Tangkap hasil pembuatan sesi ke dalam variabel 'localSession'
-    const localSession = await this.prisma.localSession.create({
+    await this.prisma.localSession.create({
       data: {
         sessionTokenHash: accessToken, // Idealnya ini di-hash lagi untuk keamanan ekstra
         externalUserId: userProfile.sub,
@@ -68,7 +68,8 @@ export class AuthController {
     });
 
     // 4. Tanam cookie dan arahkan ke dashboard
-    res.cookie('app_b_session', localSession.id, {
+    // PERBAIKAN: Gunakan accessToken agar konsisten dengan pencarian database di fungsi logout
+    res.cookie('app_b_session', accessToken, {
       httpOnly: true,
       sameSite: 'lax',
     });
@@ -77,8 +78,32 @@ export class AuthController {
   }
 
   @Get('logout')
-  logout(@Res() res: Response) {
+  async logout(@Req() req: Request, @Res() res: Response) {
+    // 1. Ambil nilai token dari kuki
+    const sessionToken = req.cookies['app_b_session'];
+
+    if (sessionToken) {
+      try {
+        // 2. Tandai sesi sebagai revoked di dalam database sesuai spesifikasi
+        await this.prisma.localSession.updateMany({
+          where: {
+            sessionTokenHash: sessionToken,
+          },
+          data: {
+            status: 'revoked',
+            revokedAt: new Date(),
+            revokeReason: 'local_logout',
+          },
+        });
+      } catch (error) {
+        // Abaikan eror jika sesi sudah tidak valid/dihapus
+      }
+    }
+
+    // 3. Hapus kuki dari peramban pengguna
     res.clearCookie('app_b_session');
+
+    // 4. Arahkan pengguna kembali ke halaman utama (login page)
     return res.redirect('/');
   }
 }
