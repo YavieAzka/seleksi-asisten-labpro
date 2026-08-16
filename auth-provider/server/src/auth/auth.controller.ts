@@ -84,31 +84,33 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const sessionId = req.cookies['sso_session'];
+    const rawToken = req.cookies['sso_session'];
 
-    if (!sessionId) {
+    // 1. Jika tidak ada cookie sama sekali, langsung arahkan ke halaman login
+    if (!rawToken) {
       const queryString = new URLSearchParams(query as any).toString();
       return res.redirect(`/auth/login-page?${queryString}`);
     }
 
-    const rawToken = req.cookies['sso_session'];
-    if (!rawToken) {
-      throw new UnauthorizedException('Harap login terlebih dahulu');
-    }
-
+    // 2. Validasi status cookie di database
     const session = await this.authService.validateCentralSession(rawToken);
+
+    // 3. PERBAIKAN: Jika sesi sudah dicabut/kedaluwarsa (null)
+    // Jangan lempar 401. Hapus cookie lama dan paksa login ulang!
     if (!session) {
-      throw new UnauthorizedException(
-        'Sesi tidak valid atau telah kedaluwarsa',
-      );
+      res.clearCookie('sso_session'); // Bersihkan cookie yang sudah revoked
+      const queryString = new URLSearchParams(query as any).toString();
+      return res.redirect(`/auth/login-page?${queryString}`);
     }
 
+    // 4. Evaluasi Policy dan Klien
     const app = await this.authService.validateClientAndPolicy(
       query.client_id,
       query.redirect_uri,
       session.user.userGroups,
     );
 
+    // 5. Terbitkan Authorization Code
     const code = await this.authService.generateAuthorizationCode(
       session.userId,
       app.id,
@@ -118,6 +120,7 @@ export class AuthController {
       query.code_challenge_method,
     );
 
+    // 6. Redirect kembali ke aplikasi (App A / App B)
     const redirectUrl = new URL(query.redirect_uri);
     redirectUrl.searchParams.append('code', code);
     redirectUrl.searchParams.append('state', query.state);

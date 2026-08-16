@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.5",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -27,12 +28,14 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "bcrypt": "^6.0.0",
+    "bullmq": "^6.1.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "connect-redis": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "ejs": "^6.0.1",
     "express-session": "^1.19.0",
+    "ioredis": "^6.0.0",
     "prisma": "^7.9.1",
     "redis": "^6.2.0",
     "reflect-metadata": "^0.2.2",

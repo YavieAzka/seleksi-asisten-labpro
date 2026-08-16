@@ -22,6 +22,7 @@
           <button type="submit">Logout</button>
         </form>
       </div>
+      
       <div class="card">
         <h3>Informasi Dasar</h3>
         <form method="POST" action="/users/<%= user.id %>">
@@ -43,6 +44,7 @@
           <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
         </form>
       </div>
+
       <div class="card">
         <h3>Groups</h3>
         <table>
@@ -70,6 +72,57 @@
           <button type="submit" class="btn btn-primary" style="margin-top: 8px;">Tambahkan</button>
         </form>
       </div>
+
+      <!-- TAMBAHAN: Card Riwayat Sesi (Central Sessions) -->
+      <div class="card">
+        <h3>Riwayat Sesi (Central Sessions)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID Sesi</th>
+              <th>Status</th>
+              <th>Dibuat Pada</th>
+              <th>Kedaluwarsa</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (user.ssoSessions && user.ssoSessions.length > 0) { %>
+              <% user.ssoSessions.forEach(function(session) { %>
+                <tr>
+                  <td><code style="font-size: 0.85em;"><%= session.id.substring(0, 8) %>...</code></td>
+                  <td>
+                    <% if (session.status === 'active') { %>
+                      <span style="color: green; font-weight: bold;">Aktif</span>
+                    <% } else if (session.status === 'revoked') { %>
+                      <span style="color: red;">Dicabut</span>
+                    <% } else { %>
+                      <span style="color: gray;">Kedaluwarsa</span>
+                    <% } %>
+                  </td>
+                  <td><%= new Date(session.createdAt).toLocaleString('id-ID') %></td>
+                  <td><%= new Date(session.expiresAt).toLocaleString('id-ID') %></td>
+                  <td>
+                    <% if (session.status === 'active') { %>
+                      <form method="POST" action="/users/<%= user.id %>/sessions/<%= session.id %>/revoke" style="margin: 0;">
+                        <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.85em;">Cabut Sesi</button>
+                      </form>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="5" style="text-align: center;">Belum ada riwayat sesi.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <!-- AKHIR TAMBAHAN -->
+
       <a href="/users" class="btn btn-secondary">← Kembali ke Daftar User</a>
     </main>
   </div>

@@ -79,4 +79,15 @@ export class UsersController {
     await this.usersService.removeGroup(id, groupId);
     return res.redirect(`/users/${id}/edit`);
   }
+
+  // TAMBAHAN: Endpoint untuk menangkap request cabut sesi
+  @Post(':id/sessions/:sessionId/revoke')
+  async revokeSession(
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+    @Res() res: Response,
+  ) {
+    await this.usersService.revokeSession(id, sessionId);
+    return res.redirect(`/users/${id}/edit`);
+  }
 }
