@@ -17,14 +17,14 @@ export class InternalController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async handleLogoutWebhook(@Body() payload: any) {
-    // Mengekstrak eventType dari payload worker
-    const { eventId, centralSessionId, eventType } = payload;
+    // Mengekstrak payload worker
+    const { eventId, centralSessionId, userId, eventType } = payload;
 
     this.logger.log(`Menerima webhook logout untuk eventId: ${eventId}`);
 
-    if (!eventId || !centralSessionId) {
+    if (!eventId || (!centralSessionId && !userId)) {
       this.logger.warn(
-        'Payload tidak valid: eventId atau centralSessionId hilang.',
+        'Payload tidak valid: eventId atau identifier sesi hilang.',
       );
       return { status: 'error', message: 'Invalid payload' };
     }
@@ -40,9 +40,15 @@ export class InternalController {
       }
 
       await this.prisma.$transaction(async (tx) => {
-        await tx.localSession.deleteMany({
-          where: { centralSessionId },
-        });
+        if (centralSessionId) {
+          await tx.localSession.deleteMany({
+            where: { centralSessionId },
+          });
+        } else if (userId) {
+          await tx.localSession.deleteMany({
+            where: { externalUserId: userId },
+          });
+        }
 
         // Memasukkan eventType dan result sesuai spesifikasi Prisma
         await tx.processedEvent.create({

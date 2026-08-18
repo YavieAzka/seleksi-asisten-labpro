@@ -123,6 +123,21 @@
       </div>
       <!-- AKHIR TAMBAHAN -->
 
+      <div class="card" style="border-left: 4px solid #ff4d4f;">
+        <h3 style="color: #ff4d4f;">Zona Berbahaya: Ganti Kata Sandi</h3>
+        <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
+          Mengganti kata sandi akan otomatis mencabut seluruh sesi aktif (Central & Local Session) milik pengguna ini di seluruh aplikasi.
+        </p>
+        <form method="POST" action="/users/<%= user.id %>/change-password">
+          <div class="form-row">
+            <label for="newPassword">Kata Sandi Baru</label>
+            <input type="password" id="newPassword" name="newPassword" required minlength="6" />
+          </div>
+          <button type="submit" class="btn btn-danger">Ganti Sandi & Cabut Sesi</button>
+        </form>
+      </div>
+      <!-- AKHIR TAMBAHAN -->
+
       <a href="/users" class="btn btn-secondary">← Kembali ke Daftar User</a>
     </main>
   </div>

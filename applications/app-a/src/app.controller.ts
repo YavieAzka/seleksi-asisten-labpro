@@ -1,6 +1,7 @@
-import { Controller, Get, Render, Req, Res } from '@nestjs/common';
+import { Controller, Get, Render, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { PrismaService } from './prisma.service';
+import { SessionGuard } from './auth/session.guard';
 
 @Controller()
 export class AppController {
@@ -12,7 +13,7 @@ export class AppController {
   index() {
     return { title: 'SiEks - Sistem Akademik' };
   }
-
+  @UseGuards(SessionGuard)
   @Get('dashboard')
   async dashboard(@Req() req: Request, @Res() res: Response) {
     const token = req.cookies['app_a_session'];

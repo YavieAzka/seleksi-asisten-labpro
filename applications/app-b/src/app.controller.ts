@@ -1,6 +1,7 @@
-import { Controller, Get, Req, Res } from '@nestjs/common';
+import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { PrismaService } from './prisma.service';
+import { SessionGuard } from './session.guard';
 
 @Controller()
 export class AppController {
@@ -10,7 +11,7 @@ export class AppController {
   index(@Res() res: Response) {
     return res.render('index', { title: 'Edunek - LMS' });
   }
-
+  @UseGuards(SessionGuard)
   @Get('dashboard')
   async dashboard(@Req() req: Request, @Res() res: Response) {
     // PERBAIKAN 1: Ubah nama variabel agar lebih relevan (token, bukan ID)
@@ -24,7 +25,10 @@ export class AppController {
     // PERBAIKAN 2: Cari sesi menggunakan sessionTokenHash, bukan id
     // Menggunakan findFirst untuk menghindari error jika kolom ini bukan @unique di skema Prisma Anda
     const session = await this.prisma.localSession.findFirst({
-      where: { sessionTokenHash: sessionToken },
+      where: {
+        sessionTokenHash: sessionToken,
+        status: 'active',
+      },
     });
 
     if (!session || session.status !== 'active') {

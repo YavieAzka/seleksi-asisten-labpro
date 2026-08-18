@@ -175,4 +175,46 @@ export class AuthController {
     // Kembalikan ke halaman login agar pengguna tahu mereka sudah keluar
     return res.redirect('/auth/login-page');
   }
+
+  @Post('change-password')
+  async changePasswordSelf(
+    @Req() req: Request,
+    @Body('oldPassword') oldPassword: string,
+    @Body('newPassword') newPassword: string,
+    @Res() res: Response,
+  ) {
+    // 1. Ambil session ID dari cookie pengguna yang sedang login
+    const sessionId = req.cookies['sso_session'];
+    //console.log('>>> DEBUG GANTI SANDI - Isi sessionId:', sessionId);
+    if (!sessionId) {
+      return res.status(401).json({ error: 'Tidak ada sesi aktif' });
+    }
+
+    // 2. Panggil service untuk eksekusi
+    await this.authService.changePasswordSelf(
+      sessionId,
+      oldPassword,
+      newPassword,
+    );
+
+    // 3. Bersihkan cookie karena sesinya sudah dicabut global
+    res.clearCookie('sso_session');
+
+    // 4. Redirect pengguna kembali ke halaman login
+    return res.redirect(
+      '/auth/login-page?message=Sandi berhasil diubah. Silakan login kembali.',
+    );
+  }
+
+  @Get('change-password')
+  renderChangePasswordPage(@Req() req: Request, @Res() res: Response) {
+    // Pastikan pengguna memiliki sesi sebelum bisa melihat form ini
+    if (!req.cookies['sso_session']) {
+      return res.redirect(
+        '/auth/login-page?error=Silakan login terlebih dahulu',
+      );
+    }
+    // Render file template change-password.ejs
+    return res.render('change-password');
+  }
 }

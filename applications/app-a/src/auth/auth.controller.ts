@@ -3,11 +3,12 @@ import {
   Get,
   Query,
   Res,
+  Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -75,7 +76,25 @@ export class AuthController {
   }
 
   @Get('logout')
-  logout(@Res() res: Response) {
+  async logout(@Req() req: Request, @Res() res: Response) {
+    const sessionToken = req.cookies['app_a_session'];
+
+    if (sessionToken) {
+      try {
+        const result = await this.prisma.localSession.updateMany({
+          where: {
+            sessionTokenHash: sessionToken,
+          },
+          data: {
+            status: 'revoked',
+            revokedAt: new Date(),
+            revokeReason: 'local_logout',
+          },
+        });
+      } catch (error) {}
+    } else {
+    }
+
     res.clearCookie('app_a_session');
     return res.redirect('/');
   }

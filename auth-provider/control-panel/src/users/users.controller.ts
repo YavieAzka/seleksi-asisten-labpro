@@ -80,7 +80,6 @@ export class UsersController {
     return res.redirect(`/users/${id}/edit`);
   }
 
-  // TAMBAHAN: Endpoint untuk menangkap request cabut sesi
   @Post(':id/sessions/:sessionId/revoke')
   async revokeSession(
     @Param('id') id: string,
@@ -89,5 +88,16 @@ export class UsersController {
   ) {
     await this.usersService.revokeSession(id, sessionId);
     return res.redirect(`/users/${id}/edit`);
+  }
+
+  @Post(':id/change-password')
+  async changePassword(
+    @Param('id') id: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    if (!newPassword || newPassword.length < 6) {
+      return { error: 'Kata sandi baru minimal 6 karakter' };
+    }
+    return this.usersService.changePassword(id, newPassword);
   }
 }

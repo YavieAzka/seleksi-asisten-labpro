@@ -58,7 +58,78 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
-    await this.findOne(id);
+    const user = await this.findOne(id);
+
+    if (user.status === 'active' && dto.status === 'inactive') {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id },
+          data: dto,
+        });
+
+        await tx.ssoSession.updateMany({
+          where: { userId: id, status: 'active' },
+          data: {
+            status: 'revoked',
+            revokedAt: new Date(),
+            revokeReason: 'admin_deactivated',
+          },
+        });
+
+        await tx.accessToken.updateMany({
+          where: { userId: id, status: 'active' },
+          data: {
+            status: 'revoked',
+            revokedAt: new Date(),
+          },
+        });
+
+        const eventPayload = {
+          eventId: crypto.randomUUID(),
+          eventType: 'AccessPolicyChanged',
+          userId: id,
+          centralSessionId: null,
+          applicationId: null,
+          reason: 'admin_deactivated',
+          occurredAt: new Date().toISOString(),
+          metadata: {},
+        };
+
+        const newEvent = await tx.event.create({
+          data: {
+            eventType: 'AccessPolicyChanged',
+            userId: id,
+            payload: eventPayload,
+            status: 'pending',
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            eventType: 'UserDeactivated',
+            userId: id,
+            result: 'success',
+            metadata: { action: 'admin_deactivated' },
+          },
+        });
+
+        return { updatedUser, newEvent };
+      });
+
+      await this.eventQueue.add('AccessPolicyChanged', result.newEvent.payload, {
+        jobId: result.newEvent.id,
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 2000 },
+      });
+
+      await this.prisma.event.update({
+        where: { id: result.newEvent.id },
+        data: { status: 'published', publishedAt: new Date() },
+      });
+
+      return result.updatedUser;
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: dto,
@@ -75,9 +146,71 @@ export class UsersService {
   }
 
   async removeGroup(userId: string, groupId: string) {
-    return this.prisma.userGroup.deleteMany({
-      where: { userId, groupId },
+    const savedEvents = await this.prisma.$transaction(async (tx) => {
+      await tx.userGroup.deleteMany({
+        where: { userId, groupId },
+      });
+
+      const policies = await tx.applicationGroupPolicy.findMany({
+        where: { groupId },
+      });
+
+      const newEvents: any[] = [];
+      for (const policy of policies) {
+        await tx.accessToken.updateMany({
+          where: { userId, applicationId: policy.applicationId, status: 'active' },
+          data: { status: 'revoked', revokedAt: new Date() },
+        });
+
+        const eventPayload = {
+          eventId: crypto.randomUUID(),
+          eventType: 'AccessPolicyChanged',
+          userId: userId,
+          centralSessionId: null,
+          applicationId: policy.applicationId,
+          reason: 'removed_from_group',
+          occurredAt: new Date().toISOString(),
+          metadata: { groupId },
+        };
+
+        const newEvent = await tx.event.create({
+          data: {
+            eventType: 'AccessPolicyChanged',
+            userId: userId,
+            applicationId: policy.applicationId,
+            payload: eventPayload,
+            status: 'pending',
+          },
+        });
+        newEvents.push(newEvent);
+
+        await tx.auditLog.create({
+          data: {
+            eventType: 'AccessPolicyChanged',
+            userId: userId,
+            applicationId: policy.applicationId,
+            result: 'success',
+            metadata: { action: 'removed_from_group', groupId },
+          },
+        });
+      }
+      return newEvents;
     });
+
+    for (const event of savedEvents) {
+      await this.eventQueue.add('AccessPolicyChanged', event.payload, {
+        jobId: event.id,
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 2000 },
+      });
+
+      await this.prisma.event.update({
+        where: { id: event.id },
+        data: { status: 'published', publishedAt: new Date() },
+      });
+    }
+
+    return { success: true };
   }
 
   // --- PERBAIKAN: Pencabutan Sesi dengan Transactional Outbox ---
@@ -155,6 +288,11 @@ export class UsersService {
     // 2. Publikasikan pesan ke Message Queue (BullMQ)
     await this.eventQueue.add('SessionRevoked', savedEvent.payload, {
       jobId: savedEvent.id, // Menjamin idempotensi, mencegah duplikasi tugas di antrean
+      attempts: 5, // Maksimal 5 kali percobaan ulang jika gagal
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
     });
 
     // 3. Tandai status event menjadi 'published' setelah sukses terkirim ke broker
@@ -167,5 +305,83 @@ export class UsersService {
     });
 
     return savedEvent;
+  }
+
+  async changePassword(userId: string, newPassword: string) {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    const savedEvent = await this.prisma.$transaction(async (tx) => {
+      // Perbarui sandi pengguna
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      });
+
+      // Cabut SEMUA central session aktif (SsoSession)
+      await tx.ssoSession.updateMany({
+        where: { userId: userId, status: 'active' },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: 'admin_forced_password_change',
+        },
+      });
+
+      // Cabut SEMUA access token aktif (AccessToken)
+      await tx.accessToken.updateMany({
+        where: { userId: userId, status: 'active' },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+        },
+      });
+
+      const eventPayload = {
+        eventId: crypto.randomUUID(),
+        eventType: 'PasswordChanged',
+        userId: userId,
+        centralSessionId: null,
+        applicationId: null,
+        reason: 'admin_forced_password_change',
+        occurredAt: new Date().toISOString(),
+        metadata: {},
+      };
+
+      const newEvent = await tx.event.create({
+        data: {
+          eventType: 'PasswordChanged',
+          userId: userId,
+          payload: eventPayload,
+          status: 'pending',
+        },
+      });
+
+      // Catat ke audit log (AuditLog)
+      await tx.auditLog.create({
+        data: {
+          eventType: 'PasswordChanged',
+          userId: userId,
+          result: 'success',
+          metadata: { action: 'admin_forced' },
+        },
+      });
+
+      return newEvent;
+    });
+
+    await this.eventQueue.add('PasswordChanged', savedEvent.payload, {
+      jobId: savedEvent.id,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 2000 },
+    });
+
+    await this.prisma.event.update({
+      where: { id: savedEvent.id },
+      data: { status: 'published', publishedAt: new Date() },
+    });
+
+    return {
+      message: 'Kata sandi berhasil diubah dan sesi global telah dicabut',
+    };
   }
 }

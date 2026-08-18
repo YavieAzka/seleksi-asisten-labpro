@@ -21,8 +21,13 @@ export class WorkerProcessor extends WorkerHost {
       throw new Error('Job ID tidak ditemukan di dalam payload BullMQ');
     }
 
+    const targetAppsQuery: any = { status: 'active' };
+    if (payload.applicationId) {
+      targetAppsQuery.id = payload.applicationId;
+    }
+
     const applications = await this.prisma.application.findMany({
-      where: { status: 'active' },
+      where: targetAppsQuery,
     });
 
     let hasError = false;
@@ -63,7 +68,7 @@ export class WorkerProcessor extends WorkerHost {
       }
 
       try {
-        // Modifikasi Docker Network Bridge
+        // Modifikasi Docker Network Bridge (Solusi Cerdas!)
         const targetUrl = app.logoutNotificationUrl.replace(
           'localhost',
           'host.docker.internal',
@@ -84,7 +89,11 @@ export class WorkerProcessor extends WorkerHost {
           });
           this.logger.log(`Berhasil mengirim event ke ${app.name}`);
         } else {
-          throw new Error(`HTTP Error: Status ${response.status}`);
+          // Ambil isi teks dari response error agar terbaca di log
+          const errorBody = await response.text();
+          throw new Error(
+            `HTTP Error ${response.status} dari ${app.name}: ${errorBody}`,
+          );
         }
       } catch (error) {
         const errorMessage =
@@ -103,6 +112,7 @@ export class WorkerProcessor extends WorkerHost {
       }
     }
 
+    // Melempar error untuk memicu mekanisme Retry & DLQ pada BullMQ
     if (hasError) {
       throw new Error(
         'Ada satu atau lebih aplikasi yang gagal diproses. Memicu mekanisme retry...',

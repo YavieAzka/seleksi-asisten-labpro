@@ -5,6 +5,8 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  Post,
+  Body,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
@@ -105,5 +107,52 @@ export class AuthController {
 
     // 4. Arahkan pengguna kembali ke halaman utama (login page)
     return res.redirect('/');
+  }
+
+  // --- TAMBAHAN UNTUK BACK-CHANNEL LOGOUT DARI SYNC WORKER ---
+  @Post('../internal/logout')
+  // Catatan: Gunakan rute '../internal/logout' jika controller ini menggunakan prefix 'auth',
+  // sehingga URL akhirnya tetap menjadi /internal/logout sesuai request dari worker.
+  // Atau lebih baik, buat controller baru khusus webhook jika memungkinkan.
+  async handleBackChannelLogout(@Body() payload: any) {
+    // 1. Ekstrak data dari payload event BullMQ
+    const { eventId, userId, centralSessionId, reason } = payload;
+
+    // (Opsional tapi disarankan) Lakukan pengecekan Idempotency di sini menggunakan eventId
+    // agar event yang sama tidak dieksekusi berulang kali.
+
+    // 2. Tentukan skenario pencabutan sesi berdasarkan payload
+    if (centralSessionId) {
+      // SKENARIO 1: Logout Biasa / Pencabutan Sesi Tunggal
+      // Worker mengirim centralSessionId secara spesifik
+      await this.prisma.localSession.updateMany({
+        where: {
+          centralSessionId: centralSessionId,
+          status: 'active', // Pastikan hanya mencabut yang masih aktif
+        },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: reason,
+        },
+      });
+    } else if (userId) {
+      // SKENARIO 2: Global Kill-Switch (Contoh: Ganti Kata Sandi)
+      // centralSessionId null, tetapi userId ada. Cabut SEMUA sesi milik user ini!
+      await this.prisma.localSession.updateMany({
+        where: {
+          externalUserId: userId,
+          status: 'active',
+        },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: reason,
+        },
+      });
+    }
+
+    // 3. Kembalikan respons sukses ke Sync Worker
+    return { success: true, message: 'Local session(s) revoked successfully' };
   }
 }

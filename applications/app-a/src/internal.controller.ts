@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
+import { PrismaService } from './prisma.service'; // Sesuaikan path ini dengan letak PrismaService kamu
 
 @Controller('internal')
 export class InternalController {
@@ -16,55 +16,60 @@ export class InternalController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async handleLogoutWebhook(@Body() payload: any) {
-    // Mengekstrak eventType dari payload worker
-    const { eventId, centralSessionId, eventType } = payload;
+  async handleBackChannelLogout(@Body() payload: any) {
+    const { eventId, eventType, userId, centralSessionId, reason } = payload;
+    this.logger.log(`Menerima webhook internal logout: Event ID ${eventId}`);
 
-    this.logger.log(`Menerima webhook logout untuk eventId: ${eventId}`);
+    // 1. Cek Idempotency: Pastikan event ini tidak dieksekusi ganda
+    const existingEvent = await this.prisma.processedEvent.findUnique({
+      where: { eventId: eventId },
+    });
 
-    if (!eventId || !centralSessionId) {
-      this.logger.warn(
-        'Payload tidak valid: eventId atau centralSessionId hilang.',
-      );
-      return { status: 'error', message: 'Invalid payload' };
+    if (existingEvent) {
+      this.logger.log(`Event ${eventId} sudah pernah diproses. (Idempotent).`);
+      return { success: true, message: 'Already processed' };
     }
 
-    try {
-      const existingEvent = await this.prisma.processedEvent.findUnique({
-        where: { eventId },
+    // 2. Skenario Pencabutan Sesi
+    if (centralSessionId) {
+      // Skenario 1: Logout SSO biasa
+      await this.prisma.localSession.updateMany({
+        where: {
+          centralSessionId: centralSessionId,
+          status: 'active',
+        },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: reason,
+        },
       });
-
-      if (existingEvent) {
-        this.logger.log(`Event ${eventId} sudah pernah diproses. Melewati...`);
-        return { status: 'ignored', reason: 'already_processed' };
-      }
-
-      await this.prisma.$transaction(async (tx) => {
-        await tx.localSession.deleteMany({
-          where: { centralSessionId },
-        });
-
-        // Memasukkan eventType dan result sesuai spesifikasi Prisma
-        await tx.processedEvent.create({
-          data: {
-            eventId,
-            eventType: eventType || 'SessionRevoked',
-            processedAt: new Date(),
-            result: 'success',
-          },
-        });
+    } else if (userId) {
+      // Skenario 2: Global Kill-Switch (Ganti Password, dsb)
+      await this.prisma.localSession.updateMany({
+        where: {
+          externalUserId: userId,
+          status: 'active',
+        },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: reason,
+        },
       });
-
-      this.logger.log(
-        `Berhasil mencabut sesi lokal untuk centralSessionId: ${centralSessionId}`,
-      );
-      return { status: 'success' };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(`Gagal memproses webhook: ${errorMessage}`);
-
-      throw new Error('Gagal memproses webhook sinkronisasi sesi');
     }
+
+    // 3. Catat event agar tidak diproses ulang di masa depan
+    await this.prisma.processedEvent.create({
+      data: {
+        eventId: eventId,
+        eventType: eventType || 'SessionRevoked',
+        processedAt: new Date(),
+        result: 'success',
+      },
+    });
+
+    this.logger.log(`Berhasil mencabut local session untuk event ${eventId}`);
+    return { success: true, message: 'Local session(s) revoked successfully' };
   }
 }

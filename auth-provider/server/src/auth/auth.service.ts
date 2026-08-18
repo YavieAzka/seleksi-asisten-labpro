@@ -357,6 +357,11 @@ export class AuthService {
     // Penggunaan properti jobId memastikan event yang sama tidak dikerjakan dua kali
     await this.eventQueue.add('SessionRevoked', savedEvent.payload, {
       jobId: savedEvent.id,
+      attempts: 5, // Maksimal 5 kali percobaan ulang jika gagal
+      backoff: {
+        type: 'exponential',
+        delay: 2000, // Jeda waktu eksponensial agar tidak membanjiri aplikasi klien
+      },
     });
 
     // 4. Tandai bahwa event berhasil dikirim ke antrean
@@ -367,5 +372,124 @@ export class AuthService {
         publishedAt: new Date(),
       },
     });
+  }
+
+  async changePasswordSelf(
+    rawSessionCookie: string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    // 1. Hash cookie mentah untuk dicocokkan dengan sessionTokenHash di database
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawSessionCookie)
+      .digest('hex');
+
+    // 2. Cari sesi menggunakan sessionTokenHash (sesuai schema.prisma)
+    const session = await this.prisma.ssoSession.findFirst({
+      where: {
+        sessionTokenHash: tokenHash,
+        status: 'active', // Menggunakan enum SessionStatus
+      },
+      include: { user: true },
+    });
+
+    if (!session) {
+      throw new UnauthorizedException(
+        'Sesi tidak ditemukan atau sudah tidak valid',
+      );
+    }
+
+    const userId = session.userId;
+
+    // 3. Validasi Kata Sandi Lama menggunakan passwordHash (sesuai schema.prisma)
+    const isPasswordValid = await bcrypt.compare(
+      oldPassword,
+      session.user.passwordHash,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Kata sandi lama salah');
+    }
+
+    // 4. Hash Kata Sandi Baru
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // 5. Transactional Outbox (Atomisitas Data)
+    const savedEvent = await this.prisma.$transaction(async (tx) => {
+      // Perbarui sandi di tabel User
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newPasswordHash }, // updatedAt otomatis dari Prisma @updatedAt
+      });
+
+      // Cabut SEMUA central session (SsoSession) milik pengguna ini
+      await tx.ssoSession.updateMany({
+        where: { userId: userId, status: 'active' },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokeReason: 'password_changed',
+        },
+      });
+
+      // Cabut SEMUA access token (AccessToken) milik pengguna ini
+      await tx.accessToken.updateMany({
+        where: { userId: userId, status: 'active' },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+        },
+      });
+
+      // Buat payload event untuk Sync Worker
+      const eventPayload = {
+        eventId: crypto.randomUUID(),
+        eventType: 'PasswordChanged',
+        userId: userId,
+        centralSessionId: null,
+        applicationId: null,
+        reason: 'password_changed',
+        occurredAt: new Date().toISOString(),
+        metadata: {},
+      };
+
+      // Simpan event ke outbox (Event)
+      const newEvent = await tx.event.create({
+        data: {
+          eventType: 'PasswordChanged',
+          userId: userId,
+          payload: eventPayload,
+          status: 'pending',
+        },
+      });
+
+      // Catat log audit (AuditLog)
+      await tx.auditLog.create({
+        data: {
+          eventType: 'PasswordChanged',
+          userId: userId,
+          sessionId: session.id, // Menyimpan UUID asli dari sesi
+          result: 'success',
+          metadata: { action: 'user_self_service' },
+        },
+      });
+
+      return newEvent;
+    });
+
+    // 6. Publikasikan ke Message Queue (BullMQ)
+    await this.eventQueue.add('PasswordChanged', savedEvent.payload, {
+      jobId: savedEvent.id,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 2000 },
+    });
+
+    // 7. Tandai event terpublikasi
+    await this.prisma.event.update({
+      where: { id: savedEvent.id },
+      data: { status: 'published', publishedAt: new Date() },
+    });
+
+    return true;
   }
 }

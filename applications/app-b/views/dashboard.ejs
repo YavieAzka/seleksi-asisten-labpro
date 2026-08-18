@@ -6,9 +6,16 @@
 </head>
 <body class="bg-gray-50 min-h-screen pb-10">
   <nav class="bg-emerald-600 p-4 shadow-md text-white flex justify-between items-center">
-    <h1 class="text-xl font-bold">Edunek Dashboard</h1>
-    <a href="/auth/logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-medium text-sm transition shadow">Logout Lokal</a>
-  </nav>
+  <h1 class="text-xl font-bold">Edunek Dashboard</h1>
+  <div class="flex items-center space-x-3">
+    <a href="http://localhost:3000/auth/change-password" class="bg-blue-700 hover:bg-blue-800 border border-blue-500 px-4 py-2 rounded font-medium text-sm transition shadow">
+      Ganti Sandi
+    </a>
+    <a href="/auth/logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-medium text-sm transition shadow">
+      Logout Lokal
+    </a>
+  </div>
+</nav>
 
   <main class="max-w-5xl mx-auto mt-8 px-6 space-y-6">
     
