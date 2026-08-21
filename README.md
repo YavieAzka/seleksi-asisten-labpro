@@ -3,8 +3,8 @@
 Tugas Seleksi 2 | Calon Asisten Laboratorium Pemrograman 2026
 
 ## 1. Identitas
-Nama: Yavie
-NIM: 13524077
+Nama: Yavie Azka Putra Araly  
+NIM: 13524077  
 
 ## 2. Cara Menjalankan Sistem
 Proyek ini dapat dijalankan sepenuhnya melalui Docker Compose. Cukup jalankan perintah berikut di root direktori proyek:
