@@ -1,10 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Edit User — Control Panel Admin</title>
+  <title>Edit User | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -22,7 +24,7 @@
           <button type="submit">Logout</button>
         </form>
       </div>
-      
+
       <div class="card">
         <h3>Informasi Dasar</h3>
         <form method="POST" action="/users/<%= user.id %>">
@@ -37,8 +39,8 @@
           <div class="form-row">
             <label for="status">Status</label>
             <select id="status" name="status">
-              <option value="active" <%= user.status === 'active' ? 'selected' : '' %>>active</option>
-              <option value="inactive" <%= user.status === 'inactive' ? 'selected' : '' %>>inactive</option>
+              <option value="active" <%=user.status==='active' ? 'selected' : '' %>>active</option>
+              <option value="inactive" <%=user.status==='inactive' ? 'selected' : '' %>>inactive</option>
             </select>
           </div>
           <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
@@ -48,26 +50,35 @@
       <div class="card">
         <h3>Groups</h3>
         <table>
-          <thead><tr><th>Group</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
           <tbody>
             <% user.userGroups.forEach(function(ug) { %>
               <tr>
-                <td><%= ug.group.name %></td>
+                <td>
+                  <%= ug.group.name %>
+                </td>
                 <td>
                   <form method="POST" action="/users/<%= user.id %>/groups/<%= ug.group.id %>/remove">
                     <button type="submit" class="btn btn-danger">Hapus</button>
                   </form>
                 </td>
               </tr>
-            <% }); %>
+              <% }); %>
           </tbody>
         </table>
         <form method="POST" action="/users/<%= user.id %>/groups" class="form-row" style="margin-top: 16px;">
           <label for="groupId">Tambahkan ke Group</label>
           <select id="groupId" name="groupId">
             <% allGroups.forEach(function(group) { %>
-              <option value="<%= group.id %>"><%= group.name %></option>
-            <% }); %>
+              <option value="<%= group.id %>">
+                <%= group.name %>
+              </option>
+              <% }); %>
           </select>
           <button type="submit" class="btn btn-primary" style="margin-top: 8px;">Tambahkan</button>
         </form>
@@ -87,46 +98,68 @@
             </tr>
           </thead>
           <tbody>
-            <% if (user.ssoSessions && user.ssoSessions.length > 0) { %>
+            <% if (user.ssoSessions && user.ssoSessions.length> 0) { %>
               <% user.ssoSessions.forEach(function(session) { %>
                 <tr>
                   <td><code style="font-size: 0.85em;"><%= session.id.substring(0, 8) %>...</code></td>
                   <td>
-                    <% if (session.status === 'active') { %>
+                    <% if (session.status==='active' ) { %>
                       <span style="color: green; font-weight: bold;">Aktif</span>
-                    <% } else if (session.status === 'revoked') { %>
-                      <span style="color: red;">Dicabut</span>
-                    <% } else { %>
-                      <span style="color: gray;">Kedaluwarsa</span>
-                    <% } %>
+                      <% } else if (session.status==='revoked' ) { %>
+                        <span style="color: red;">Dicabut</span>
+                        <% } else { %>
+                          <span style="color: gray;">Kedaluwarsa</span>
+                          <% } %>
                   </td>
-                  <td><%= new Date(session.createdAt).toLocaleString('id-ID') %></td>
-                  <td><%= new Date(session.expiresAt).toLocaleString('id-ID') %></td>
                   <td>
-                    <% if (session.status === 'active') { %>
-                      <form method="POST" action="/users/<%= user.id %>/sessions/<%= session.id %>/revoke" style="margin: 0;">
-                        <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.85em;">Cabut Sesi</button>
+                    <%= new Date(session.createdAt).toLocaleString('id-ID') %>
+                  </td>
+                  <td>
+                    <%= new Date(session.expiresAt).toLocaleString('id-ID') %>
+                  </td>
+                  <td>
+                    <% if (session.status==='active' ) { %>
+                      <form method="POST" action="/users/<%= user.id %>/sessions/<%= session.id %>/revoke"
+                        style="margin: 0;">
+                        <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.85em;">Cabut
+                          Sesi</button>
                       </form>
-                    <% } else { %>
-                      -
-                    <% } %>
+                      <% } else { %>
+                        -
+                        <% } %>
                   </td>
                 </tr>
-              <% }); %>
-            <% } else { %>
-              <tr>
-                <td colspan="5" style="text-align: center;">Belum ada riwayat sesi.</td>
-              </tr>
-            <% } %>
+                <% }); %>
+                  <% } else { %>
+                    <tr>
+                      <td colspan="5" style="text-align: center;">Belum ada riwayat sesi.</td>
+                    </tr>
+                    <% } %>
           </tbody>
         </table>
+      </div>
+      <!-- AKHIR TAMBAHAN -->
+
+      <!-- TAMBAHAN: Card MFA -->
+      <div class="card">
+        <h3>Multi-Factor Authentication (MFA)</h3>
+        <% if (user.mfaEnabled) { %>
+          <p style="color: green; font-weight: bold; margin-bottom: 10px;">MFA Aktif</p>
+          <form method="POST" action="/users/<%= user.id %>/mfa/disable">
+            <button type="submit" class="btn btn-danger">Nonaktifkan MFA</button>
+          </form>
+          <% } else { %>
+            <p style="color: gray; margin-bottom: 10px;">MFA Belum Aktif</p>
+            <a href="/users/<%= user.id %>/mfa/setup" class="btn btn-primary">Setup MFA</a>
+            <% } %>
       </div>
       <!-- AKHIR TAMBAHAN -->
 
       <div class="card" style="border-left: 4px solid #ff4d4f;">
         <h3 style="color: #ff4d4f;">Zona Berbahaya: Ganti Kata Sandi</h3>
         <p style="font-size: 0.9em; color: #666; margin-bottom: 15px;">
-          Mengganti kata sandi akan otomatis mencabut seluruh sesi aktif (Central & Local Session) milik pengguna ini di seluruh aplikasi.
+          Mengganti kata sandi akan otomatis mencabut seluruh sesi aktif (Central & Local Session) milik pengguna ini di
+          seluruh aplikasi.
         </p>
         <form method="POST" action="/users/<%= user.id %>/change-password">
           <div class="form-row">
@@ -142,4 +175,5 @@
     </main>
   </div>
 </body>
+
 </html>

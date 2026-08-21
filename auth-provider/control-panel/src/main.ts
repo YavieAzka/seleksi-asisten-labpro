@@ -42,6 +42,8 @@ async function bootstrap() {
   app.setViewEngine('ejs');
   app.useStaticAssets(join(__dirname, '..', 'public'));
 
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT ?? 3010);
 }
 bootstrap();

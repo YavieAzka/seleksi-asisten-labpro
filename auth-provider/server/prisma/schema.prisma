@@ -24,6 +24,8 @@ model User {
   name         String
   email        String   @unique
   passwordHash String   @map("password_hash")
+  mfaEnabled   Boolean  @default(false) @map("mfa_enabled")
+  mfaSecret    String?  @map("mfa_secret")
   status       UserStatus @default(active)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -32,8 +34,20 @@ model User {
   ssoSessions       SsoSession[]
   authorizationCodes AuthorizationCode[]
   accessTokens      AccessToken[]
+  mfaChallenges     MfaChallenge[]
 
   @@map("users")
+}
+
+model MfaChallenge {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_challenges")
 }
 
 model Group {

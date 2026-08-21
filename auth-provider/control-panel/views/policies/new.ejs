@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Tambah Policy — Control Panel Admin</title>
+  <title>Tambah Policy | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -31,16 +33,20 @@
             <label for="applicationId">Application</label>
             <select id="applicationId" name="applicationId" required>
               <% applications.forEach(function(app) { %>
-                <option value="<%= app.id %>"><%= app.name %></option>
-              <% }); %>
+                <option value="<%= app.id %>">
+                  <%= app.name %>
+                </option>
+                <% }); %>
             </select>
           </div>
           <div class="form-row">
             <label for="groupId">Group</label>
             <select id="groupId" name="groupId" required>
               <% groups.forEach(function(group) { %>
-                <option value="<%= group.id %>"><%= group.name %></option>
-              <% }); %>
+                <option value="<%= group.id %>">
+                  <%= group.name %>
+                </option>
+                <% }); %>
             </select>
           </div>
           <p style="font-size: 13px; color: #666;">Effect: <strong>allow</strong> (default)</p>
@@ -51,4 +57,5 @@
     </main>
   </div>
 </body>
+
 </html>

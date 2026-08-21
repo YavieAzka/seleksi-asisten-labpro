@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { authenticator } from 'otplib';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +33,70 @@ export class AuthService {
       throw new UnauthorizedException('Kredensial tidak valid');
     }
 
-    return user;
+    if (user.mfaEnabled) {
+      // Buat state MFA Challenge
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+      const challenge = await this.prisma.mfaChallenge.create({
+        data: {
+          userId: user.id,
+          expiresAt,
+        },
+      });
+      return { user, mfaRequired: true, challengeId: challenge.id };
+    }
+
+    return { user, mfaRequired: false };
+  }
+
+  async verifyMfa(challengeId: string, token: string, ipAddress?: string, userAgent?: string) {
+    const challenge = await this.prisma.mfaChallenge.findFirst({
+      where: {
+        id: challengeId,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
+
+    if (!challenge) {
+      throw new UnauthorizedException('Challenge MFA tidak valid atau telah kedaluwarsa');
+    }
+
+    const { user } = challenge;
+    if (!user.mfaSecret) {
+      throw new UnauthorizedException('Konfigurasi MFA bermasalah');
+    }
+
+    const isValid = authenticator.verify({ token, secret: user.mfaSecret });
+
+    if (!isValid) {
+      // Audit log failed
+      await this.prisma.auditLog.create({
+        data: {
+          eventType: 'MfaFailed',
+          userId: user.id,
+          result: 'failed',
+          metadata: { reason: 'Invalid TOTP code' },
+        },
+      });
+      throw new UnauthorizedException('Kode TOTP salah');
+    }
+
+    // Success
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'MfaSuccess',
+        userId: user.id,
+        result: 'success',
+      },
+    });
+
+    // Delete challenge
+    await this.prisma.mfaChallenge.delete({ where: { id: challenge.id } });
+
+    // Terbitkan central session
+    return this.createCentralSession(user.id, ipAddress, userAgent);
   }
 
   async createCentralSession(
@@ -276,6 +340,7 @@ export class AuthService {
       sub: accessToken.user.id,
       name: accessToken.user.name,
       email: accessToken.user.email,
+      sso_session_id: accessToken.ssoSessionId,
     };
   }
 
@@ -293,7 +358,12 @@ export class AuthService {
       where: { sessionTokenHash, status: 'active' },
     });
 
-    if (!session) return;
+    if (!session) {
+      console.log(`[REVOKE] Sesi tidak ditemukan untuk hash: ${sessionTokenHash}`);
+      return;
+    }
+    
+    console.log(`[REVOKE] Mencabut sesi ID: ${session.id}`);
 
     // 2. Terapkan Transactional Outbox
     const savedEvent = await this.prisma.$transaction(async (tx) => {

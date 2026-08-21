@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Users — Control Panel Admin</title>
+  <title>Users | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -27,25 +29,40 @@
       </div>
       <table>
         <thead>
-          <tr><th>Nama</th><th>Email</th><th>Status</th><th>Groups</th><th>Aksi</th></tr>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Groups</th>
+            <th>Aksi</th>
+          </tr>
         </thead>
         <tbody>
           <% users.forEach(function(user) { %>
             <tr>
-              <td><%= user.name %></td>
-              <td><%= user.email %></td>
-              <td><span class="badge badge-<%= user.status %>"><%= user.status %></span></td>
+              <td>
+                <%= user.name %>
+              </td>
+              <td>
+                <%= user.email %>
+              </td>
+              <td><span class="badge badge-<%= user.status %>">
+                  <%= user.status %>
+                </span></td>
               <td>
                 <% user.userGroups.forEach(function(ug) { %>
-                  <span class="badge badge-active"><%= ug.group.name %></span>
-                <% }); %>
+                  <span class="badge badge-active">
+                    <%= ug.group.name %>
+                  </span>
+                  <% }); %>
               </td>
               <td><a href="/users/<%= user.id %>/edit" class="btn btn-secondary">Edit</a></td>
             </tr>
-          <% }); %>
+            <% }); %>
         </tbody>
       </table>
     </main>
   </div>
 </body>
+
 </html>

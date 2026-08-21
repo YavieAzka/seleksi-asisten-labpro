@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Edit Group — Control Panel Admin</title>
+  <title>Edit Group | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -38,24 +40,37 @@
       </div>
       <div class="card">
         <h3>Anggota Group</h3>
-        <% if (group.userGroups.length === 0) { %>
+        <% if (group.userGroups.length===0) { %>
           <p>Belum ada anggota di group ini.</p>
-        <% } else { %>
-          <table>
-            <thead><tr><th>Nama</th><th>Email</th></tr></thead>
-            <tbody>
-              <% group.userGroups.forEach(function(ug) { %>
-                <tr><td><%= ug.user.name %></td><td><%= ug.user.email %></td></tr>
-              <% }); %>
-            </tbody>
-          </table>
-        <% } %>
-        <p style="margin-top: 12px; font-size: 13px; color: #666;">
-          Untuk menambah/menghapus anggota, kelola dari halaman <a href="/users">Users</a>.
-        </p>
+          <% } else { %>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% group.userGroups.forEach(function(ug) { %>
+                  <tr>
+                    <td>
+                      <%= ug.user.name %>
+                    </td>
+                    <td>
+                      <%= ug.user.email %>
+                    </td>
+                  </tr>
+                  <% }); %>
+              </tbody>
+            </table>
+            <% } %>
+              <p style="margin-top: 12px; font-size: 13px; color: #666;">
+                Untuk menambah/menghapus anggota, kelola dari halaman <a href="/users">Users</a>.
+              </p>
       </div>
       <a href="/groups" class="btn btn-secondary">← Kembali ke Daftar Group</a>
     </main>
   </div>
 </body>
+
 </html>

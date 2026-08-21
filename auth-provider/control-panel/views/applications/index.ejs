@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Applications — Control Panel Admin</title>
+  <title>Applications | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -27,21 +29,34 @@
       </div>
       <table>
         <thead>
-          <tr><th>Nama</th><th>Client ID</th><th>Status</th><th>Redirect URIs</th><th>Aksi</th></tr>
+          <tr>
+            <th>Nama</th>
+            <th>Client ID</th>
+            <th>Status</th>
+            <th>Redirect URIs</th>
+            <th>Aksi</th>
+          </tr>
         </thead>
         <tbody>
           <% applications.forEach(function(app) { %>
             <tr>
-              <td><%= app.name %></td>
+              <td>
+                <%= app.name %>
+              </td>
               <td><code><%= app.clientId %></code></td>
-              <td><span class="badge badge-<%= app.status %>"><%= app.status %></span></td>
-              <td><%= app.redirectUris.length %> URI</td>
+              <td><span class="badge badge-<%= app.status %>">
+                  <%= app.status %>
+                </span></td>
+              <td>
+                <%= app.redirectUris.length %> URI
+              </td>
               <td><a href="/applications/<%= app.id %>/edit" class="btn btn-secondary">Edit</a></td>
             </tr>
-          <% }); %>
+            <% }); %>
         </tbody>
       </table>
     </main>
   </div>
 </body>
+
 </html>

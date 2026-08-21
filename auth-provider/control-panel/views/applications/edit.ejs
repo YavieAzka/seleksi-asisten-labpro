@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Edit Application — Control Panel Admin</title>
+  <title>Edit Application | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -24,7 +26,8 @@
       </div>
       <div class="card">
         <h3>Informasi Dasar</h3>
-        <p style="font-size: 13px; color: #666;">Client ID: <code><%= application.clientId %></code> (tidak dapat diubah)</p>
+        <p style="font-size: 13px; color: #666;">Client ID: <code><%= application.clientId %></code> (tidak dapat
+          diubah)</p>
         <form method="POST" action="/applications/<%= application.id %>">
           <div class="form-row">
             <label for="name">Nama Aplikasi</label>
@@ -33,8 +36,8 @@
           <div class="form-row">
             <label for="status">Status</label>
             <select id="status" name="status">
-              <option value="active" <%= application.status === 'active' ? 'selected' : '' %>>active</option>
-              <option value="inactive" <%= application.status === 'inactive' ? 'selected' : '' %>>inactive</option>
+              <option value="active" <%=application.status==='active' ? 'selected' : '' %>>active</option>
+              <option value="inactive" <%=application.status==='inactive' ? 'selected' : '' %>>inactive</option>
             </select>
           </div>
           <div class="form-row">
@@ -43,7 +46,8 @@
           </div>
           <div class="form-row">
             <label for="logoutNotificationUrl">Logout Notification URL</label>
-            <input type="text" id="logoutNotificationUrl" name="logoutNotificationUrl" value="<%= application.logoutNotificationUrl %>" required />
+            <input type="text" id="logoutNotificationUrl" name="logoutNotificationUrl"
+              value="<%= application.logoutNotificationUrl %>" required />
           </div>
           <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
         </form>
@@ -51,7 +55,12 @@
       <div class="card">
         <h3>Redirect URIs</h3>
         <table>
-          <thead><tr><th>Redirect URI</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Redirect URI</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
           <tbody>
             <% application.redirectUris.forEach(function(ru) { %>
               <tr>
@@ -62,12 +71,14 @@
                   </form>
                 </td>
               </tr>
-            <% }); %>
+              <% }); %>
           </tbody>
         </table>
-        <form method="POST" action="/applications/<%= application.id %>/redirect-uris" class="form-row" style="margin-top: 16px;">
+        <form method="POST" action="/applications/<%= application.id %>/redirect-uris" class="form-row"
+          style="margin-top: 16px;">
           <label for="redirectUri">Tambah Redirect URI</label>
-          <input type="text" id="redirectUri" name="redirectUri" placeholder="http://localhost:3001/auth/callback" required />
+          <input type="text" id="redirectUri" name="redirectUri" placeholder="http://localhost:3001/auth/callback"
+            required />
           <button type="submit" class="btn btn-primary" style="margin-top: 8px;">Tambahkan</button>
         </form>
       </div>
@@ -75,4 +86,5 @@
     </main>
   </div>
 </body>
+
 </html>

@@ -13,6 +13,8 @@ async function bootstrap() {
   app.setBaseViewsDir(join(process.cwd(), 'views'));
   app.setViewEngine('ejs');
 
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT || 3000);
 }
 bootstrap();

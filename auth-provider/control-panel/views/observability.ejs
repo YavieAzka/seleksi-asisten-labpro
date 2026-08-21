@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Observability | Control Panel Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .metric-card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .metric-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 8px 0;
+    }
+
+    .metric-label {
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-green {
+      background-color: #22c55e;
+    }
+
+    .status-yellow {
+      background-color: #eab308;
+    }
+
+    .status-red {
+      background-color: #ef4444;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>SSO Control Panel</h2>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/users">Users</a>
+      <a href="/groups">Groups</a>
+      <a href="/applications">Applications</a>
+      <a href="/policies">Policies</a>
+      <a href="/observability" class="active">Observability</a>
+    </aside>
+    <main class="main-content">
+      <div class="topbar">
+        <h1>Observability Metrics</h1>
+        <form method="POST" action="/logout">
+          <button type="submit">Logout (<%= admin.name %>)</button>
+        </form>
+      </div>
+
+      <div class="card"
+        style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+        <p style="margin: 0;">Real-time metrics dari <strong>Auth Provider Server</strong> (Sliding window 60 detik)</p>
+        <div style="font-size: 12px; color: #888;">
+          <span class="status-indicator status-green" id="connection-status"></span>
+          <span id="last-updated">Updating...</span>
+        </div>
+      </div>
+
+      <h3 class="section-title">HTTP Traffic</h3>
+      <div class="metric-grid">
+        <div class="metric-card" id="card-requests">
+          <div class="metric-label">Total Requests</div>
+          <div class="metric-value" id="val-requests">0</div>
+        </div>
+        <div class="metric-card" id="card-latency">
+          <div class="metric-label">Avg Latency</div>
+          <div class="metric-value"><span id="val-latency">0</span> <span
+              style="font-size: 16px; color: #888;">ms</span></div>
+        </div>
+        <div class="metric-card" id="card-errors">
+          <div class="metric-label">Error Rate</div>
+          <div class="metric-value"><span id="val-errors">0.00</span> <span
+              style="font-size: 16px; color: #888;">%</span></div>
+        </div>
+      </div>
+
+      <h3 class="section-title">Background Worker (BullMQ)</h3>
+      <div class="metric-grid">
+        <div class="metric-card" id="card-q-waiting">
+          <div class="metric-label">Queue Depth (Waiting)</div>
+          <div class="metric-value" id="val-q-waiting">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Active Jobs</div>
+          <div class="metric-value" id="val-q-active">0</div>
+        </div>
+        <div class="metric-card" id="card-q-failed">
+          <div class="metric-label">Failed / DLQ</div>
+          <div class="metric-value" id="val-q-failed">0</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    async function fetchMetrics() {
+      try {
+        const res = await fetch('/api/metrics');
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+
+        // Update DOM
+        document.getElementById('val-requests').innerText = data.totalRequests;
+        document.getElementById('val-latency').innerText = data.avgLatencyMs;
+        document.getElementById('val-errors').innerText = data.errorRatePercent;
+
+        document.getElementById('val-q-waiting').innerText = data.queue.waiting;
+        document.getElementById('val-q-active').innerText = data.queue.active;
+        document.getElementById('val-q-failed').innerText = data.queue.failed;
+
+        // Visual Indicators (Colors)
+        const errCard = document.getElementById('card-errors');
+        if (parseFloat(data.errorRatePercent) > 10) {
+          errCard.style.borderTop = '4px solid #ef4444'; // Red
+        } else if (parseFloat(data.errorRatePercent) > 0) {
+          errCard.style.borderTop = '4px solid #eab308'; // Yellow
+        } else {
+          errCard.style.borderTop = '4px solid #22c55e'; // Green
+        }
+
+        const waitCard = document.getElementById('card-q-waiting');
+        if (data.queue.waiting > 50) {
+          waitCard.style.borderTop = '4px solid #ef4444';
+        } else if (data.queue.waiting > 10) {
+          waitCard.style.borderTop = '4px solid #eab308';
+        } else {
+          waitCard.style.borderTop = '4px solid #22c55e';
+        }
+
+        // Connection Status
+        document.getElementById('connection-status').className = 'status-indicator status-green';
+        const now = new Date();
+        document.getElementById('last-updated').innerText = 'Last updated: ' + now.toLocaleTimeString();
+
+      } catch (error) {
+        console.error("Failed to fetch metrics:", error);
+        document.getElementById('connection-status').className = 'status-indicator status-red';
+        document.getElementById('last-updated').innerText = 'Connection lost';
+      }
+    }
+
+    // Polling every 2 seconds
+    fetchMetrics();
+    setInterval(fetchMetrics, 2000);
+  </script>
+</body>
+
+</html>

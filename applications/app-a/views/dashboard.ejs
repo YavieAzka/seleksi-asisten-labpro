@@ -11,10 +11,21 @@
     <a href="http://localhost:3000/auth/change-password" class="bg-blue-700 hover:bg-blue-800 border border-blue-500 px-4 py-2 rounded font-medium text-sm transition shadow">
       Ganti Sandi
     </a>
-    <a href="/auth/logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded font-medium text-sm transition shadow">
-      Logout Lokal
-    </a>
-  </div>
+        <div class="flex gap-4">
+          <a
+            href="/auth/logout"
+            class="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded shadow hover:bg-gray-300"
+          >
+            Lokal Logout
+          </a>
+          <a
+            href="http://localhost:3000/auth/logout"
+            class="bg-red-600 text-white font-semibold px-4 py-2 rounded shadow hover:bg-red-700"
+          >
+            Global Logout
+          </a>
+        </div>
+      </div>
 </nav>
 
   <main class="max-w-5xl mx-auto mt-8 px-6 space-y-6">

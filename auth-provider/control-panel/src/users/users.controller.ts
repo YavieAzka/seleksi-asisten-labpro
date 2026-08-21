@@ -14,6 +14,8 @@ import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { authenticator } from 'otplib';
+import * as qrcode from 'qrcode';
 
 @Controller('users')
 @UseGuards(AuthGuard)
@@ -99,5 +101,70 @@ export class UsersController {
       return { error: 'Kata sandi baru minimal 6 karakter' };
     }
     return this.usersService.changePassword(id, newPassword);
+  }
+
+  @Get(':id/mfa/setup')
+  async mfaSetupForm(@Param('id') id: string, @Res() res: Response) {
+    const user = await this.usersService.findOne(id);
+    const secret = authenticator.generateSecret();
+    const otpauthUrl = authenticator.keyuri(user.email, 'SSO ITB', secret);
+    const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
+
+    return res.render('users/mfa-setup', {
+      user,
+      secret,
+      qrCodeUrl,
+    });
+  }
+
+  @Post(':id/mfa/setup')
+  async mfaSetup(
+    @Param('id') id: string,
+    @Body('secret') secret: string,
+    @Body('code') code: string,
+    @Res() res: Response,
+  ) {
+    const user = await this.usersService.findOne(id);
+    const isValid = authenticator.verify({ token: code, secret });
+
+    if (!isValid) {
+      // Re-render dengan error
+      const otpauthUrl = authenticator.keyuri(user.email, 'SSO ITB', secret);
+      const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
+      return res.render('users/mfa-setup', {
+        user,
+        secret,
+        qrCodeUrl,
+        error: 'Kode salah. Silakan coba lagi.',
+      });
+    }
+
+    // Aktifkan MFA
+    await this.prisma.user.update({
+      where: { id },
+      data: { mfaEnabled: true, mfaSecret: secret },
+    });
+
+    // Catat log audit
+    await this.prisma.auditLog.create({
+      data: {
+        eventType: 'MfaEnrolled',
+        userId: user.id,
+        result: 'success',
+        metadata: { action: 'admin_setup' },
+      },
+    });
+
+    return res.redirect(`/users/${id}/edit`);
+  }
+
+  @Post(':id/mfa/disable')
+  async mfaDisable(@Param('id') id: string, @Res() res: Response) {
+    await this.prisma.user.update({
+      where: { id },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
+
+    return res.redirect(`/users/${id}/edit`);
   }
 }

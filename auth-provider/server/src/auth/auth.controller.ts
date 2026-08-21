@@ -38,9 +38,43 @@ export class AuthController {
       code_challenge_method,
     } = loginDto;
 
-    const user = await this.authService.validateUser(email, password);
+    const { user, mfaRequired, challengeId } = await this.authService.validateUser(email, password);
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
+
+    if (redirect_uri) {
+      const queryString = new URLSearchParams({
+        client_id: client_id || '',
+        redirect_uri: redirect_uri || '',
+        response_type: response_type || '',
+        state: state || '',
+        code_challenge: code_challenge || '',
+        code_challenge_method: code_challenge_method || '',
+      }).toString();
+
+      if (mfaRequired) {
+        return res.redirect(`/auth/mfa-page?challenge_id=${challengeId}&${queryString}`);
+      }
+
+      const { rawToken, session } = await this.authService.createCentralSession(
+        user.id,
+        ipAddress,
+        userAgent,
+      );
+
+      res.cookie('sso_session', rawToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        expires: session.expiresAt,
+      });
+
+      return res.redirect(`/auth/authorize?${queryString}`);
+    }
+
+    if (mfaRequired) {
+      return res.redirect(`/auth/mfa-page?challenge_id=${challengeId}`);
+    }
 
     const { rawToken, session } = await this.authService.createCentralSession(
       user.id,
@@ -55,19 +89,6 @@ export class AuthController {
       expires: session.expiresAt,
     });
 
-    if (redirect_uri) {
-      const queryString = new URLSearchParams({
-        client_id: client_id || '',
-        redirect_uri: redirect_uri || '',
-        response_type: response_type || '',
-        state: state || '',
-        code_challenge: code_challenge || '',
-        code_challenge_method: code_challenge_method || '',
-      }).toString();
-
-      return res.redirect(`/auth/authorize?${queryString}`);
-    }
-
     return res.json({
       message: 'Login berhasil',
       user: {
@@ -76,6 +97,57 @@ export class AuthController {
         email: user.email,
       },
     });
+  }
+
+  @Get('mfa-page')
+  renderMfaPage(@Query() query: any, @Res() res: Response) {
+    return res.render('mfa-challenge', { query });
+  }
+
+  @Post('mfa-verify')
+  async mfaVerify(
+    @Body('challenge_id') challengeId: string,
+    @Body('code') code: string,
+    @Body('client_id') clientId: string,
+    @Body('redirect_uri') redirectUri: string,
+    @Body('response_type') responseType: string,
+    @Body('state') state: string,
+    @Body('code_challenge') codeChallenge: string,
+    @Body('code_challenge_method') codeChallengeMethod: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const { rawToken, session } = await this.authService.verifyMfa(
+      challengeId,
+      code,
+      ipAddress,
+      userAgent,
+    );
+
+    res.cookie('sso_session', rawToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: session.expiresAt,
+    });
+
+    if (redirectUri) {
+      const queryString = new URLSearchParams({
+        client_id: clientId || '',
+        redirect_uri: redirectUri || '',
+        response_type: responseType || '',
+        state: state || '',
+        code_challenge: codeChallenge || '',
+        code_challenge_method: codeChallengeMethod || '',
+      }).toString();
+
+      return res.redirect(`/auth/authorize?${queryString}`);
+    }
+
+    return res.json({ message: 'Login MFA berhasil' });
   }
 
   @Get('authorize')

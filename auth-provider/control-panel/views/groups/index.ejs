@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Groups — Control Panel Admin</title>
+  <title>Groups | Control Panel Admin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
   <div class="layout">
     <aside class="sidebar">
@@ -27,20 +29,32 @@
       </div>
       <table>
         <thead>
-          <tr><th>Nama</th><th>Deskripsi</th><th>Jumlah Anggota</th><th>Aksi</th></tr>
+          <tr>
+            <th>Nama</th>
+            <th>Deskripsi</th>
+            <th>Jumlah Anggota</th>
+            <th>Aksi</th>
+          </tr>
         </thead>
         <tbody>
           <% groups.forEach(function(group) { %>
             <tr>
-              <td><%= group.name %></td>
-              <td><%= group.description || '-' %></td>
-              <td><%= group.userGroups.length %> user</td>
+              <td>
+                <%= group.name %>
+              </td>
+              <td>
+                <%= group.description || '-' %>
+              </td>
+              <td>
+                <%= group.userGroups.length %> user
+              </td>
               <td><a href="/groups/<%= group.id %>/edit" class="btn btn-secondary">Edit</a></td>
             </tr>
-          <% }); %>
+            <% }); %>
         </tbody>
       </table>
     </main>
   </div>
 </body>
+
 </html>

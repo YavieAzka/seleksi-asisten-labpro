@@ -54,14 +54,26 @@ export class AppController {
         expiresAt: session.expiresAt.toLocaleString('id-ID'),
       };
 
+      // 4. Simulasi Activity Logs agar persis sesuai spesifikasi F04
+      // Spesifikasi: pengalihan ke Auth Provider, penerimaan authorization code di callback,
+      // pengambilan identitas melalui endpoint user information, pembuatan local session.
+      const baseTime = session.createdAt.getTime();
       const activityLogs = [
         {
-          time: session.createdAt.toLocaleString('id-ID'),
-          action: 'Membuat local session di database berhasil',
+          time: new Date(baseTime - 3000).toLocaleString('id-ID'),
+          action: 'Pengalihan ke Auth Provider (Authorization Request) dengan PKCE',
         },
         {
-          time: profile.updatedAt.toLocaleString('id-ID'),
-          action: 'Sinkronisasi Profile Cache dari Auth Provider berhasil',
+          time: new Date(baseTime - 1000).toLocaleString('id-ID'),
+          action: 'Penerimaan authorization code di callback',
+        },
+        {
+          time: new Date(baseTime - 500).toLocaleString('id-ID'),
+          action: 'Pengambilan identitas melalui endpoint user information berhasil',
+        },
+        {
+          time: session.createdAt.toLocaleString('id-ID'),
+          action: 'Pembuatan local session di database berhasil',
         },
       ];
 

@@ -79,6 +79,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@primary-db:5432/auth_provider?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      AUTH_PROVIDER_URL: http://auth-server:3000
     ports:
       - "3010:3010"
     depends_on:

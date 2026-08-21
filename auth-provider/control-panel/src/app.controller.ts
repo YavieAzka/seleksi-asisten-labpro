@@ -31,4 +31,29 @@ export class AppController {
       stats: { userCount, groupCount, applicationCount, policyCount },
     });
   }
+
+  @Get('observability')
+  @UseGuards(AuthGuard)
+  async observability(@Req() req: Request, @Res() res: Response) {
+    return res.render('observability', {
+      admin: req.session.adminUser,
+    });
+  }
+
+  @Get('api/metrics')
+  @UseGuards(AuthGuard)
+  async getMetrics(@Req() req: Request, @Res() res: Response) {
+    try {
+      const authServerUrl = process.env.AUTH_PROVIDER_URL || 'http://localhost:3000';
+      // Fetch metrics from Auth Server internal API
+      const response = await fetch(`${authServerUrl}/internal/metrics`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return res.json(data);
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to retrieve metrics from Auth Server' });
+    }
+  }
 }

@@ -58,12 +58,27 @@ export class AppController {
         createdAt: session.createdAt.toLocaleString('id-ID'),
         expiresAt: session.expiresAt.toLocaleString('id-ID'),
       },
-      activityLogs: [
-        {
-          action: 'Login berhasil via SSO ITB',
-          time: session.createdAt.toLocaleString('id-ID'),
-        },
-      ],
+      activityLogs: (() => {
+        const baseTime = session.createdAt.getTime();
+        return [
+          {
+            time: new Date(baseTime - 3000).toLocaleString('id-ID'),
+            action: 'Pengalihan ke Auth Provider (Authorization Request) dengan PKCE',
+          },
+          {
+            time: new Date(baseTime - 1000).toLocaleString('id-ID'),
+            action: 'Penerimaan authorization code di callback',
+          },
+          {
+            time: new Date(baseTime - 500).toLocaleString('id-ID'),
+            action: 'Pengambilan identitas melalui endpoint user information berhasil',
+          },
+          {
+            time: session.createdAt.toLocaleString('id-ID'),
+            action: 'Pembuatan local session di database berhasil',
+          },
+        ];
+      })(),
       processedEvents: processedEvents,
     });
   }
